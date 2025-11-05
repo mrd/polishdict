@@ -144,7 +144,8 @@ class PolishDictionaryAPI:
             'etymology': None,
             'pronunciation': [],
             'grammar': {},
-            'declension': []
+            'declension': [],
+            'pos_blocks': []  # Track POS blocks with definition ranges
         }
 
         if self.verbose:
@@ -262,6 +263,8 @@ class PolishDictionaryAPI:
             if self.verbose:
                 print(f"[Polish] Found {len(pos_blocks)} POS blocks with definitions")
 
+            current_def_num = 1  # Track definition numbers
+
             for pos_text, definitions_html in pos_blocks:
                 # Extract POS from the <p><i> text
                 pos_clean = self._clean_text(pos_text).lower()
@@ -276,6 +279,9 @@ class PolishDictionaryAPI:
 
                 if self.verbose:
                     print(f"[Polish] Processing POS: {detected_pos or pos_clean}")
+
+                # Track the start of this POS block's definitions
+                start_def_num = current_def_num
 
                 # Extract all <dd> items from this block
                 dd_items = re.findall(r'<dd>\s*\([0-9.]+\)(.*?)</dd>', definitions_html, re.DOTALL)
@@ -297,8 +303,19 @@ class PolishDictionaryAPI:
                             'definition': definition,
                             'language': 'pl'
                         })
+                        current_def_num += 1
                         if self.verbose:
                             print(f"[Polish] Added: {definition[:60]}...")
+
+                # Track this POS block with its definition range
+                if current_def_num > start_def_num:
+                    result['pos_blocks'].append({
+                        'pos': detected_pos or 'nieznany',
+                        'start_def': start_def_num,
+                        'end_def': current_def_num - 1
+                    })
+                    if self.verbose:
+                        print(f"[Polish] POS block '{detected_pos}' has definitions {start_def_num}-{current_def_num - 1}")
         elif self.verbose:
             print(f"[Polish] No znaczenia section found at all")
 
@@ -317,11 +334,30 @@ class PolishDictionaryAPI:
             if self.verbose:
                 print(f"[Polish] Found {len(tables)} declension tables")
 
-            for table_html in tables:
+            # Associate tables with POS blocks based on order
+            for idx, table_html in enumerate(tables):
                 # Parse the table
                 table_data = self._parse_html_table(table_html)
                 if table_data:
-                    result['declension'].append(table_data)
+                    # Associate with POS block if available
+                    if idx < len(result['pos_blocks']):
+                        pos_block = result['pos_blocks'][idx]
+                        result['declension'].append({
+                            'table': table_data,
+                            'start_def': pos_block['start_def'],
+                            'end_def': pos_block['end_def'],
+                            'pos': pos_block['pos']
+                        })
+                        if self.verbose:
+                            print(f"[Polish] Table {idx+1} associated with definitions {pos_block['start_def']}-{pos_block['end_def']}")
+                    else:
+                        # No POS block association available
+                        result['declension'].append({
+                            'table': table_data,
+                            'start_def': None,
+                            'end_def': None,
+                            'pos': None
+                        })
                     if self.verbose:
                         print(f"[Polish] Parsed table with {len(table_data)} rows")
 
@@ -334,8 +370,11 @@ class PolishDictionaryAPI:
             'etymology': None,
             'pronunciation': [],
             'grammar': {},
-            'declension': []
+            'declension': [],
+            'pos_blocks': []  # Track POS blocks with definition ranges
         }
+        current_def_num = 1  # Track definition numbers
+        current_pos_block = None  # Track current POS being processed
 
         if self.verbose:
             print(f"[English] HTML length: {len(html)}")
@@ -397,6 +436,19 @@ class PolishDictionaryAPI:
                     break
 
             if matched_pos:
+                # Start a new POS block
+                if current_pos_block:
+                    # Save the previous POS block
+                    result['pos_blocks'].append(current_pos_block)
+                    if self.verbose:
+                        print(f"[English] Completed POS block '{current_pos_block['pos']}' with definitions {current_pos_block['start_def']}-{current_pos_block['end_def']}")
+
+                current_pos_block = {
+                    'pos': matched_pos,
+                    'start_def': current_def_num,
+                    'end_def': current_def_num - 1  # Will update as we add definitions
+                }
+
                 if self.verbose:
                     print(f"[English] Found POS: {matched_pos}")
 
@@ -426,6 +478,8 @@ class PolishDictionaryAPI:
                                 'definition': clean_text,
                                 'language': 'en'
                             })
+                            current_pos_block['end_def'] = current_def_num
+                            current_def_num += 1
                             if self.verbose:
                                 print(f"[English] Added definition: {clean_text[:60]}...")
                 elif self.verbose:
@@ -482,9 +536,32 @@ class PolishDictionaryAPI:
                     # Parse the table
                     table_data = self._parse_html_table(table_html)
                     if table_data:
-                        result['declension'].append(table_data)
+                        # Associate with the current POS block
+                        if current_pos_block:
+                            result['declension'].append({
+                                'table': table_data,
+                                'start_def': current_pos_block['start_def'],
+                                'end_def': current_pos_block['end_def'],
+                                'pos': current_pos_block['pos']
+                            })
+                            if self.verbose:
+                                print(f"[English] Table associated with definitions {current_pos_block['start_def']}-{current_pos_block['end_def']}")
+                        else:
+                            # No POS block association
+                            result['declension'].append({
+                                'table': table_data,
+                                'start_def': None,
+                                'end_def': None,
+                                'pos': None
+                            })
                         if self.verbose:
                             print(f"[English] Parsed table with {len(table_data)} rows")
+
+        # Save the last POS block if it exists
+        if current_pos_block and current_pos_block['end_def'] >= current_pos_block['start_def']:
+            result['pos_blocks'].append(current_pos_block)
+            if self.verbose:
+                print(f"[English] Completed POS block '{current_pos_block['pos']}' with definitions {current_pos_block['start_def']}-{current_pos_block['end_def']}")
 
         return result
 

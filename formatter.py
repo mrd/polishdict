@@ -48,8 +48,22 @@ class DictionaryFormatter:
                 if polish_data.get('declension'):
                     output.append(self._colorize("Odmiana (Declension):", Fore.YELLOW))
                     output.append("")
-                    for table in polish_data['declension']:
-                        output.extend(self._format_table(table))
+                    for idx, table_info in enumerate(polish_data['declension']):
+                        # Show which definitions this table applies to
+                        if table_info.get('start_def') and table_info.get('end_def'):
+                            if table_info['start_def'] == table_info['end_def']:
+                                def_range = f"For definition {table_info['start_def']}"
+                            else:
+                                def_range = f"For definitions {table_info['start_def']}-{table_info['end_def']}"
+
+                            if table_info.get('pos'):
+                                output.append(self._colorize(f"{def_range} ({table_info['pos']}):", Fore.GREEN))
+                            else:
+                                output.append(self._colorize(f"{def_range}:", Fore.GREEN))
+                        else:
+                            output.append(self._colorize(f"Table {idx + 1}:", Fore.GREEN))
+
+                        output.extend(self._format_table(table_info['table']))
                         output.append("")
                 else:
                     output.append("No declension tables found.")
@@ -91,8 +105,22 @@ class DictionaryFormatter:
                 if english_data.get('declension'):
                     output.append(self._colorize("Declension:", Fore.YELLOW))
                     output.append("")
-                    for table in english_data['declension']:
-                        output.extend(self._format_table(table))
+                    for idx, table_info in enumerate(english_data['declension']):
+                        # Show which definitions this table applies to
+                        if table_info.get('start_def') and table_info.get('end_def'):
+                            if table_info['start_def'] == table_info['end_def']:
+                                def_range = f"For definition {table_info['start_def']}"
+                            else:
+                                def_range = f"For definitions {table_info['start_def']}-{table_info['end_def']}"
+
+                            if table_info.get('pos'):
+                                output.append(self._colorize(f"{def_range} ({table_info['pos']}):", Fore.GREEN))
+                            else:
+                                output.append(self._colorize(f"{def_range}:", Fore.GREEN))
+                        else:
+                            output.append(self._colorize(f"Table {idx + 1}:", Fore.GREEN))
+
+                        output.extend(self._format_table(table_info['table']))
                         output.append("")
                 else:
                     output.append("No declension tables found.")
