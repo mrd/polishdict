@@ -342,21 +342,25 @@ class PolishDictionaryAPI:
                     # Associate with POS block if available
                     if idx < len(result['pos_blocks']):
                         pos_block = result['pos_blocks'][idx]
+                        # Determine table type based on POS
+                        table_type = 'conjugation' if pos_block['pos'] == 'czasownik' else 'declension'
                         result['declension'].append({
                             'table': table_data,
                             'start_def': pos_block['start_def'],
                             'end_def': pos_block['end_def'],
-                            'pos': pos_block['pos']
+                            'pos': pos_block['pos'],
+                            'type': table_type
                         })
                         if self.verbose:
-                            print(f"[Polish] Table {idx+1} associated with definitions {pos_block['start_def']}-{pos_block['end_def']}")
+                            print(f"[Polish] {table_type.capitalize()} table {idx+1} associated with definitions {pos_block['start_def']}-{pos_block['end_def']}")
                     else:
                         # No POS block association available
                         result['declension'].append({
                             'table': table_data,
                             'start_def': None,
                             'end_def': None,
-                            'pos': None
+                            'pos': None,
+                            'type': 'declension'
                         })
                     if self.verbose:
                         print(f"[Polish] Parsed table with {len(table_data)} rows")
@@ -371,7 +375,9 @@ class PolishDictionaryAPI:
             'pronunciation': [],
             'grammar': {},
             'declension': [],
-            'pos_blocks': []  # Track POS blocks with definition ranges
+            'pos_blocks': [],  # Track POS blocks with definition ranges
+            'declension_anchor': None,  # Anchor for declension/conjugation section
+            'conjugation_anchor': None  # Anchor for conjugation section
         }
         current_def_num = 1  # Track definition numbers
         current_pos_block = None  # Track current POS being processed
@@ -421,13 +427,14 @@ class PolishDictionaryAPI:
         pos_patterns = ['Noun', 'Verb', 'Adjective', 'Adverb', 'Pronoun',
                        'Preposition', 'Conjunction', 'Interjection', 'Numeral', 'Particle']
 
-        heading_matches = list(re.finditer(r'<h[34][^>]*>(.*?)</h[34]>', polish_section, re.IGNORECASE))
+        heading_matches = list(re.finditer(r'<h[34]([^>]*)>(.*?)</h[34]>', polish_section, re.IGNORECASE))
 
         if self.verbose:
             print(f"[English] Found {len(heading_matches)} headings in Polish section")
 
         for i, match in enumerate(heading_matches):
-            heading = self._strip_html(match.group(1))
+            heading_tag = match.group(1)  # Tag attributes including id
+            heading = self._strip_html(match.group(2))
 
             matched_pos = None
             for pos in pos_patterns:
@@ -519,18 +526,31 @@ class PolishDictionaryAPI:
                     etym_html = re.sub(r'<link[^>]*>', '', etym_html)
                     result['etymology'] = self._clean_text(self._strip_html(etym_html))
 
-            # Check for declension
-            elif 'Declension' in heading:
-                if self.verbose:
-                    print("[English] Found declension section")
+            # Check for declension or conjugation
+            elif 'Declension' in heading or 'Conjugation' in heading:
+                table_type = 'conjugation' if 'Conjugation' in heading else 'declension'
+
+                # Extract the anchor ID from the heading tag
+                id_match = re.search(r'id="([^"]+)"', heading_tag)
+                if id_match:
+                    anchor_id = id_match.group(1)
+                    if table_type == 'conjugation':
+                        result['conjugation_anchor'] = anchor_id
+                    else:
+                        result['declension_anchor'] = anchor_id
+                    if self.verbose:
+                        print(f"[English] Found {table_type} section with anchor: {anchor_id}")
+                elif self.verbose:
+                    print(f"[English] Found {table_type} section (no anchor found)")
+
                 section_start = match.end()
                 section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(polish_section)
                 decl_section = polish_section[section_start:section_end]
 
-                # Find tables in the declension section
+                # Find tables in the declension/conjugation section
                 tables = re.findall(r'<table[^>]*>(.*?)</table>', decl_section, re.DOTALL)
                 if self.verbose:
-                    print(f"[English] Found {len(tables)} declension tables")
+                    print(f"[English] Found {len(tables)} {table_type} tables")
 
                 for table_html in tables:
                     # Parse the table
@@ -542,20 +562,22 @@ class PolishDictionaryAPI:
                                 'table': table_data,
                                 'start_def': current_pos_block['start_def'],
                                 'end_def': current_pos_block['end_def'],
-                                'pos': current_pos_block['pos']
+                                'pos': current_pos_block['pos'],
+                                'type': table_type
                             })
                             if self.verbose:
-                                print(f"[English] Table associated with definitions {current_pos_block['start_def']}-{current_pos_block['end_def']}")
+                                print(f"[English] {table_type.capitalize()} table associated with definitions {current_pos_block['start_def']}-{current_pos_block['end_def']}")
                         else:
                             # No POS block association
                             result['declension'].append({
                                 'table': table_data,
                                 'start_def': None,
                                 'end_def': None,
-                                'pos': None
+                                'pos': None,
+                                'type': table_type
                             })
                         if self.verbose:
-                            print(f"[English] Parsed table with {len(table_data)} rows")
+                            print(f"[English] Parsed {table_type} table with {len(table_data)} rows")
 
         # Save the last POS block if it exists
         if current_pos_block and current_pos_block['end_def'] >= current_pos_block['start_def']:

@@ -44,12 +44,23 @@ class DictionaryFormatter:
             output.append("")
 
             if show_declension:
-                # Show declension tables
+                # Show declension/conjugation tables
                 if polish_data.get('declension'):
-                    output.append(self._colorize("Odmiana (Declension):", Fore.YELLOW))
+                    # Determine if we have conjugations or declensions
+                    has_conjugation = any(t.get('type') == 'conjugation' for t in polish_data['declension'])
+                    has_declension = any(t.get('type') == 'declension' for t in polish_data['declension'])
+
+                    if has_conjugation and has_declension:
+                        output.append(self._colorize("Odmiana (Declension/Conjugation):", Fore.YELLOW))
+                    elif has_conjugation:
+                        output.append(self._colorize("Odmiana (Conjugation):", Fore.YELLOW))
+                    else:
+                        output.append(self._colorize("Odmiana (Declension):", Fore.YELLOW))
                     output.append("")
+
                     for idx, table_info in enumerate(polish_data['declension']):
                         # Show which definitions this table applies to
+                        table_type_label = "koniugacja" if table_info.get('type') == 'conjugation' else "odmiana"
                         if table_info.get('start_def') and table_info.get('end_def'):
                             if table_info['start_def'] == table_info['end_def']:
                                 def_range = f"For definition {table_info['start_def']}"
@@ -57,16 +68,16 @@ class DictionaryFormatter:
                                 def_range = f"For definitions {table_info['start_def']}-{table_info['end_def']}"
 
                             if table_info.get('pos'):
-                                output.append(self._colorize(f"{def_range} ({table_info['pos']}):", Fore.GREEN))
+                                output.append(self._colorize(f"{def_range} ({table_info['pos']} - {table_type_label}):", Fore.GREEN))
                             else:
-                                output.append(self._colorize(f"{def_range}:", Fore.GREEN))
+                                output.append(self._colorize(f"{def_range} ({table_type_label}):", Fore.GREEN))
                         else:
-                            output.append(self._colorize(f"Table {idx + 1}:", Fore.GREEN))
+                            output.append(self._colorize(f"Table {idx + 1} ({table_type_label}):", Fore.GREEN))
 
                         output.extend(self._format_table(table_info['table']))
                         output.append("")
                 else:
-                    output.append("No declension tables found.")
+                    output.append("No declension/conjugation tables found.")
                     output.append("")
             else:
                 # Show definitions (default behavior)
@@ -101,12 +112,23 @@ class DictionaryFormatter:
             output.append("")
 
             if show_declension:
-                # Show declension tables
+                # Show declension/conjugation tables
                 if english_data.get('declension'):
-                    output.append(self._colorize("Declension:", Fore.YELLOW))
+                    # Determine if we have conjugations or declensions
+                    has_conjugation = any(t.get('type') == 'conjugation' for t in english_data['declension'])
+                    has_declension = any(t.get('type') == 'declension' for t in english_data['declension'])
+
+                    if has_conjugation and has_declension:
+                        output.append(self._colorize("Declension/Conjugation:", Fore.YELLOW))
+                    elif has_conjugation:
+                        output.append(self._colorize("Conjugation:", Fore.YELLOW))
+                    else:
+                        output.append(self._colorize("Declension:", Fore.YELLOW))
                     output.append("")
+
                     for idx, table_info in enumerate(english_data['declension']):
                         # Show which definitions this table applies to
+                        table_type_label = table_info.get('type', 'declension')
                         if table_info.get('start_def') and table_info.get('end_def'):
                             if table_info['start_def'] == table_info['end_def']:
                                 def_range = f"For definition {table_info['start_def']}"
@@ -114,16 +136,16 @@ class DictionaryFormatter:
                                 def_range = f"For definitions {table_info['start_def']}-{table_info['end_def']}"
 
                             if table_info.get('pos'):
-                                output.append(self._colorize(f"{def_range} ({table_info['pos']}):", Fore.GREEN))
+                                output.append(self._colorize(f"{def_range} ({table_info['pos']} - {table_type_label}):", Fore.GREEN))
                             else:
-                                output.append(self._colorize(f"{def_range}:", Fore.GREEN))
+                                output.append(self._colorize(f"{def_range} ({table_type_label}):", Fore.GREEN))
                         else:
-                            output.append(self._colorize(f"Table {idx + 1}:", Fore.GREEN))
+                            output.append(self._colorize(f"Table {idx + 1} ({table_type_label}):", Fore.GREEN))
 
                         output.extend(self._format_table(table_info['table']))
                         output.append("")
                 else:
-                    output.append("No declension tables found.")
+                    output.append("No declension/conjugation tables found.")
                     output.append("")
             else:
                 # Show definitions (default behavior)
@@ -149,8 +171,15 @@ class DictionaryFormatter:
                         output.append(f"  [{pos}] {grammar}")
                     output.append("")
 
-            # Add URL to English Wiktionary page
-            english_url = f"https://en.wiktionary.org/wiki/{quote(word)}#Polish"
+            # Add URL to English Wiktionary page with smart anchor
+            # If in declension mode and we have declension/conjugation sections, link to them
+            if show_declension and (english_data.get('conjugation_anchor') or english_data.get('declension_anchor')):
+                # Prefer conjugation anchor if available (for verbs), otherwise use declension
+                anchor = english_data.get('conjugation_anchor') or english_data.get('declension_anchor')
+                english_url = f"https://en.wiktionary.org/wiki/{quote(word)}#{anchor}"
+            else:
+                # Default to Polish section anchor
+                english_url = f"https://en.wiktionary.org/wiki/{quote(word)}#Polish"
             output.append(self._colorize(f"More: {english_url}", Fore.BLUE))
             output.append("")
 
