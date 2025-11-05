@@ -211,6 +211,10 @@ class PolishDictionaryAPI:
 
         if self.verbose:
             print(f"[Polish] Using definition list structure (dl/dt/dd tags)")
+            # Save Polish section to file for debugging
+            with open('/tmp/polish_section_debug.html', 'w', encoding='utf-8') as f:
+                f.write(polish_section)
+            print(f"[Polish] Saved Polish section to /tmp/polish_section_debug.html")
 
         # Polish Wiktionary uses <dl> structure with data-field attributes
         # Find pronunciation (wymowa)
