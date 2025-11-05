@@ -8,8 +8,42 @@ parts of speech, and other grammatical information in both Polish and English.
 
 import argparse
 import sys
+import itertools
 from dict_api import PolishDictionaryAPI
 from formatter import DictionaryFormatter
+
+
+def generate_polish_variants(word: str) -> list:
+    """Generate possible Polish spellings for a word with ASCII characters"""
+    # Map ASCII characters to their Polish equivalents
+    polish_chars = {
+        'a': ['a', 'ą'],
+        'c': ['c', 'ć'],
+        'e': ['e', 'ę'],
+        'l': ['l', 'ł'],
+        'n': ['n', 'ń'],
+        'o': ['o', 'ó'],
+        's': ['s', 'ś'],
+        'z': ['z', 'ź', 'ż']
+    }
+
+    # Build list of possible characters for each position
+    char_options = []
+    for char in word.lower():
+        if char in polish_chars:
+            char_options.append(polish_chars[char])
+        else:
+            char_options.append([char])
+
+    # Generate all combinations (limit to avoid explosion)
+    variants = []
+    for combo in itertools.product(*char_options):
+        variant = ''.join(combo)
+        if variant != word.lower():  # Don't include the original
+            variants.append(variant)
+
+    # Limit to a reasonable number of variants
+    return variants[:20]
 
 
 def main():
@@ -66,13 +100,44 @@ Examples:
 
     try:
         # Fetch word data
-        if not args.verbose:
-            mode_str = 'declensions' if args.declension else 'definitions'
-            print(f"Looking up '{args.word}' ({mode_str})...\n")
-        else:
-            mode_str = 'declensions' if args.declension else 'definitions'
+        mode_str = 'declensions' if args.declension else 'definitions'
+        if args.verbose:
             print(f"Looking up '{args.word}' ({mode_str}, verbose mode)...\n")
+        else:
+            print(f"Looking up '{args.word}' ({mode_str})...\n")
+
         word_data = api.fetch_word(args.word)
+
+        # Check if we got any results
+        has_results = False
+        if word_data.get('polish_wiktionary') and word_data['polish_wiktionary'].get('definitions'):
+            has_results = True
+        if word_data.get('english_wiktionary') and word_data['english_wiktionary'].get('definitions'):
+            has_results = True
+
+        # If no results and word contains ASCII characters that could be Polish, try fuzzy search
+        if not has_results and any(c in args.word.lower() for c in 'acelnosyz'):
+            if not args.verbose:
+                print(f"No results found for '{args.word}'. Trying Polish character variants...\n")
+            variants = generate_polish_variants(args.word)
+
+            for variant in variants:
+                if args.verbose:
+                    print(f"Trying variant: {variant}")
+                variant_data = api.fetch_word(variant)
+
+                # Check if this variant has results
+                variant_has_results = False
+                if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
+                    variant_has_results = True
+                if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
+                    variant_has_results = True
+
+                if variant_has_results:
+                    print(f"Found results for '{variant}' (corrected from '{args.word}'):\n")
+                    word_data = variant_data
+                    word_data['word'] = f"{variant} (from {args.word})"
+                    break
 
         # Format and display results
         output = formatter.format_result(word_data, show_declension=args.declension)
