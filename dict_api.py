@@ -238,46 +238,52 @@ class PolishDictionaryAPI:
             if self.verbose:
                 print(f"[Polish] Found etymology: {result['etymology'][:60]}...")
 
-        # Find definitions/meanings (znaczenia)
-        # Note: The </dd> might have nested content, so we need to be more careful
-        znaczenia_match = re.search(r'<dt[^>]*>.*?data-field="znaczenia".*?</dt>\s*<dd[^>]*>(.*?)(?:</dd>|<dt)', polish_section, re.DOTALL)
-        if znaczenia_match:
+        # Find definitions/meanings (znaczenia marker)
+        # NOTE: In Polish Wiktionary, the znaczenia <dd> is EMPTY!
+        # The actual definitions come AFTER in separate <p> and <dl> blocks
+        znaczenia_pos = re.search(r'<dt[^>]*>.*?data-field="znaczenia".*?</dt>', polish_section)
+        if znaczenia_pos:
             if self.verbose:
-                print(f"[Polish] Found znaczenia (meanings) section")
+                print(f"[Polish] Found znaczenia marker at position {znaczenia_pos.end()}")
 
-            znaczenia_html = znaczenia_match.group(1)
+            # Extract content after znaczenia marker
+            content_after_znaczenia = polish_section[znaczenia_pos.end():]
+
+            # Find all <p><i>POS info</i></p> followed by <dl><dd>definitions</dd></dl> blocks
+            # Pattern: <p><i>rzeczownik...</i></p> then <dl><dd>(1.1) def...</dd></dl>
+            pos_blocks = re.findall(
+                r'<p><i>([^<]*?(?:rzeczownik|czasownik|przymiotnik|przysłówek|zaimek|przyimek|spójnik|wykrzyknik|liczebnik|partykuła)[^<]*?)</i></p>\s*<dl>(.*?)</dl>',
+                content_after_znaczenia,
+                re.DOTALL | re.IGNORECASE
+            )
 
             if self.verbose:
-                print(f"[Polish] Znaczenia HTML length: {len(znaczenia_html)} chars", flush=True)
-                print(f"[Polish] Znaczenia HTML sample (first 800 chars):", flush=True)
-                print(f"[Polish] {znaczenia_html[:800]}", flush=True)
+                print(f"[Polish] Found {len(pos_blocks)} POS blocks with definitions")
 
-            # Look for part of speech indicator (in parentheses or span)
-            pos_match = re.search(r'\(([^)]+)\)', znaczenia_html)
-            detected_pos = None
-            if pos_match:
-                pos_text = pos_match.group(1).lower()
+            for pos_text, definitions_html in pos_blocks:
+                # Extract POS from the <p><i> text
+                pos_clean = self._clean_text(pos_text).lower()
+                detected_pos = None
                 pos_patterns = ['rzeczownik', 'czasownik', 'przymiotnik', 'przysłówek',
                                'zaimek', 'przyimek', 'spójnik', 'wykrzyknik', 'liczebnik',
                                'partykuła', 'wykrzyknienie']
                 for pos in pos_patterns:
-                    if pos in pos_text:
+                    if pos in pos_clean:
                         detected_pos = pos
-                        if self.verbose:
-                            print(f"[Polish] Detected POS: {detected_pos}")
                         break
 
-            # Extract definitions from ordered list
-            ol_match = re.search(r'<ol[^>]*>(.*?)</ol>', znaczenia_html, re.DOTALL)
-            if ol_match:
-                list_items = re.findall(r'<li[^>]*>(.*?)</li>', ol_match.group(1), re.DOTALL)
                 if self.verbose:
-                    print(f"[Polish] Found {len(list_items)} definitions")
+                    print(f"[Polish] Processing POS: {detected_pos or pos_clean}")
 
-                for item in list_items:
-                    # Remove nested lists
-                    item_clean = re.sub(r'<[uo]l[^>]*>.*?</[uo]l>', '', item, flags=re.DOTALL)
-                    definition = self._clean_text(self._strip_html(item_clean))
+                # Extract all <dd> items from this block
+                dd_items = re.findall(r'<dd>\s*\([0-9.]+\)(.*?)</dd>', definitions_html, re.DOTALL)
+
+                if self.verbose:
+                    print(f"[Polish] Found {len(dd_items)} definitions for this POS")
+
+                for item in dd_items:
+                    # Clean up the definition
+                    definition = self._clean_text(self._strip_html(item))
 
                     if definition and len(definition) > 5:
                         result['definitions'].append({
@@ -286,9 +292,7 @@ class PolishDictionaryAPI:
                             'language': 'pl'
                         })
                         if self.verbose:
-                            print(f"[Polish] Added definition: {definition[:60]}...")
-            elif self.verbose:
-                print(f"[Polish] No ordered list found in znaczenia section")
+                            print(f"[Polish] Added: {definition[:60]}...")
         elif self.verbose:
             print(f"[Polish] No znaczenia section found at all")
 
