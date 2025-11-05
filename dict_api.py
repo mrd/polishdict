@@ -220,10 +220,16 @@ class PolishDictionaryAPI:
         if self.verbose:
             print(f"[Polish] Found {len(heading_matches)} headings within Polish section")
             if len(heading_matches) == 0:
-                # Show a sample of the Polish section content to debug
-                sample = self._strip_html(polish_section[:1000])
-                print(f"[Polish] Polish section sample (first 1000 chars):")
-                print(f"[Polish] {sample[:500]}...")
+                # Show raw HTML structure to debug
+                print(f"[Polish] Raw HTML sample (first 1000 chars):")
+                print(f"[Polish] {polish_section[:1000]}")
+                # Also check for other possible structures
+                p_tags = re.findall(r'<p[^>]*>(.*?)</p>', polish_section[:2000], re.DOTALL)
+                print(f"\n[Polish] Found {len(p_tags)} <p> tags in first 2000 chars")
+                if p_tags:
+                    for idx, p in enumerate(p_tags[:3]):
+                        p_clean = self._strip_html(p)[:100]
+                        print(f"[Polish]   <p> {idx+1}: {p_clean}")
             else:
                 for idx, hm in enumerate(heading_matches):
                     h_text = self._strip_html(hm.group(1))
@@ -345,10 +351,12 @@ class PolishDictionaryAPI:
 
         if self.verbose and not polish_match:
             # Debug: show the actual Polish h2 section
-            polish_h2 = re.search(r'<h2[^>]*>.*?Polish.*?</h2>', html, re.DOTALL)
+            polish_h2 = re.search(r'<h2[^>]*id="Polish"[^>]*>.*?</h2>', html, re.DOTALL)
             if polish_h2:
-                print(f"[English] Found h2 with 'Polish' but pattern didn't match:")
+                print(f"[English] Found h2 with id='Polish' but pattern didn't match:")
                 print(f"[English] Raw HTML: {polish_h2.group(0)[:200]}")
+            else:
+                print("[English] No h2 with id='Polish' found either")
 
         # Try alternative pattern - must have "Polish" as the main text in the span
         if not polish_match:

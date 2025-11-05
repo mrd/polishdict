@@ -20,7 +20,15 @@ def save_html(word):
 
     try:
         response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+
+        print(f"Response status: {response.status_code}")
+
         data = response.json()
+
+        if 'error' in data:
+            print(f"API error: {data['error']}")
+            return
 
         if 'parse' in data:
             html = data['parse']['text']['*']
