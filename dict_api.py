@@ -235,7 +235,8 @@ class PolishDictionaryAPI:
                 print(f"[Polish] Found etymology: {result['etymology'][:60]}...")
 
         # Find definitions/meanings (znaczenia)
-        znaczenia_match = re.search(r'<dt[^>]*>.*?data-field="znaczenia".*?</dt>\s*<dd>(.*?)</dd>', polish_section, re.DOTALL)
+        # Note: The </dd> might have nested content, so we need to be more careful
+        znaczenia_match = re.search(r'<dt[^>]*>.*?data-field="znaczenia".*?</dt>\s*<dd[^>]*>(.*?)(?:</dd>|<dt)', polish_section, re.DOTALL)
         if znaczenia_match:
             if self.verbose:
                 print(f"[Polish] Found znaczenia (meanings) section")
@@ -243,9 +244,9 @@ class PolishDictionaryAPI:
             znaczenia_html = znaczenia_match.group(1)
 
             if self.verbose:
-                print(f"[Polish] Znaczenia HTML length: {len(znaczenia_html)} chars")
-                print(f"[Polish] Znaczenia HTML sample:")
-                print(f"[Polish] {znaczenia_html[:500]}")
+                print(f"[Polish] Znaczenia HTML length: {len(znaczenia_html)} chars", flush=True)
+                print(f"[Polish] Znaczenia HTML sample (first 800 chars):", flush=True)
+                print(f"[Polish] {znaczenia_html[:800]}", flush=True)
 
             # Look for part of speech indicator (in parentheses or span)
             pos_match = re.search(r'\(([^)]+)\)', znaczenia_html)
@@ -284,6 +285,8 @@ class PolishDictionaryAPI:
                             print(f"[Polish] Added definition: {definition[:60]}...")
             elif self.verbose:
                 print(f"[Polish] No ordered list found in znaczenia section")
+        elif self.verbose:
+            print(f"[Polish] No znaczenia section found at all")
 
         return result
 
