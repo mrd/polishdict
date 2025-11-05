@@ -219,9 +219,15 @@ class PolishDictionaryAPI:
 
         if self.verbose:
             print(f"[Polish] Found {len(heading_matches)} headings within Polish section")
-            for idx, hm in enumerate(heading_matches):
-                h_text = self._strip_html(hm.group(1))
-                print(f"[Polish]   Sub-heading {idx+1}: '{h_text}'")
+            if len(heading_matches) == 0:
+                # Show a sample of the Polish section content to debug
+                sample = self._strip_html(polish_section[:1000])
+                print(f"[Polish] Polish section sample (first 1000 chars):")
+                print(f"[Polish] {sample[:500]}...")
+            else:
+                for idx, hm in enumerate(heading_matches):
+                    h_text = self._strip_html(hm.group(1))
+                    print(f"[Polish]   Sub-heading {idx+1}: '{h_text}'")
 
         for i, match in enumerate(heading_matches):
             heading_text = self._strip_html(match.group(1)).lower()
@@ -336,6 +342,13 @@ class PolishDictionaryAPI:
 
         # Find Polish language section - be strict about matching
         polish_match = re.search(r'<h2[^>]*>.*?<span[^>]*id="Polish"[^>]*>Polish</span>.*?</h2>', html, re.DOTALL)
+
+        if self.verbose and not polish_match:
+            # Debug: show the actual Polish h2 section
+            polish_h2 = re.search(r'<h2[^>]*>.*?Polish.*?</h2>', html, re.DOTALL)
+            if polish_h2:
+                print(f"[English] Found h2 with 'Polish' but pattern didn't match:")
+                print(f"[English] Raw HTML: {polish_h2.group(0)[:200]}")
 
         # Try alternative pattern - must have "Polish" as the main text in the span
         if not polish_match:
