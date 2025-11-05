@@ -162,7 +162,7 @@ class DictionaryFormatter:
 
                 if english_data.get('definitions'):
                     output.append(self._colorize("Definitions:", Fore.YELLOW))
-                    output.extend(self._format_definitions(english_data['definitions']))
+                    output.extend(self._format_definitions(english_data['definitions'], english_data.get('pos_blocks', [])))
                     output.append("")
 
                 if english_data.get('grammar'):
@@ -205,15 +205,24 @@ class DictionaryFormatter:
             return f"{Fore.GREEN}{Style.BRIGHT}{header}\n{title}\n{footer}{Style.RESET_ALL}"
         return f"{header}\n{title}\n{footer}"
 
-    def _format_definitions(self, definitions: List[Dict]) -> List[str]:
+    def _format_definitions(self, definitions: List[Dict], pos_blocks: List[Dict] = None) -> List[str]:
         """Format a list of definitions"""
         output = []
         current_pos = None
         def_count = 0
+        global_def_count = 0  # Track global definition number
+
+        # Build a map of POS to grammar_info
+        grammar_info_map = {}
+        if pos_blocks:
+            for block in pos_blocks:
+                if block.get('grammar_info'):
+                    grammar_info_map[block['pos']] = block['grammar_info']
 
         for defn in definitions:
             pos = defn.get('pos', 'Unknown')
             definition = defn.get('definition', '')
+            global_def_count += 1
 
             # Print part of speech header if it changed
             if pos != current_pos:
@@ -222,6 +231,10 @@ class DictionaryFormatter:
                 current_pos = pos
                 def_count = 0
                 output.append(self._colorize(f"  [{self._format_pos(pos)}]", Fore.MAGENTA))
+
+                # Add grammar info if available for this POS
+                if pos in grammar_info_map:
+                    output.append(self._colorize(f"    {grammar_info_map[pos]}", Fore.CYAN))
 
             # Print the definition
             def_count += 1

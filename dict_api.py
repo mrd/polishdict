@@ -453,7 +453,8 @@ class PolishDictionaryAPI:
                 current_pos_block = {
                     'pos': matched_pos,
                     'start_def': current_def_num,
-                    'end_def': current_def_num - 1  # Will update as we add definitions
+                    'end_def': current_def_num - 1,  # Will update as we add definitions
+                    'grammar_info': None  # Will store gender, aspect, diminutive, etc.
                 }
 
                 if self.verbose:
@@ -463,6 +464,26 @@ class PolishDictionaryAPI:
                 section_start = match.end()
                 section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(polish_section)
                 pos_section = polish_section[section_start:section_end]
+
+                # Extract grammatical info line (appears before <ol> but after heading)
+                # Pattern: word followed by grammar markers (m/f/n, pf/impf, diminutive, etc.)
+                # Example: "pies m animal (diminutive piesek, augmentative psisko)"
+                # This typically appears in a <p> tag or <strong> tag before the <ol>
+                before_ol = pos_section.split('<ol', 1)[0]  # Get everything before the definitions list
+                # Look for <p><strong>word</strong> ... grammar info ... </p>
+                grammar_pattern = r'<p[^>]*>.*?<strong[^>]*>' + re.escape(word) + r'</strong>\s*(.*?)</p>'
+                grammar_match = re.search(grammar_pattern, before_ol, re.DOTALL | re.IGNORECASE)
+                if grammar_match:
+                    grammar_html = grammar_match.group(1)
+                    # Clean up the grammar info
+                    grammar_html = re.sub(r'<style[^>]*>.*?</style>', '', grammar_html, flags=re.DOTALL)
+                    grammar_html = re.sub(r'<script[^>]*>.*?</script>', '', grammar_html, flags=re.DOTALL)
+                    grammar_html = re.sub(r'<link[^>]*>', '', grammar_html)
+                    grammar_info = self._clean_text(self._strip_html(grammar_html))
+                    if grammar_info and len(grammar_info) > 1:
+                        current_pos_block['grammar_info'] = grammar_info
+                        if self.verbose:
+                            print(f"[English] Found grammar info: {grammar_info}")
 
                 # Extract definitions from ordered list
                 ol_match = re.search(r'<ol[^>]*>(.*?)</ol>', pos_section, re.DOTALL)
