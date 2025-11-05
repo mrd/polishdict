@@ -334,12 +334,12 @@ class PolishDictionaryAPI:
         if self.verbose:
             print(f"[English] HTML length: {len(html)}")
 
-        # Find Polish language section - try multiple patterns
-        polish_match = re.search(r'<h2[^>]*>.*?<span[^>]*id="Polish"[^>]*>.*?</h2>', html, re.DOTALL)
+        # Find Polish language section - be strict about matching
+        polish_match = re.search(r'<h2[^>]*>.*?<span[^>]*id="Polish"[^>]*>Polish</span>.*?</h2>', html, re.DOTALL)
 
-        # Try alternative patterns if first one fails
+        # Try alternative pattern - must have "Polish" as the main text in the span
         if not polish_match:
-            polish_match = re.search(r'<h2[^>]*>.*?Polish.*?</h2>', html, re.DOTALL | re.IGNORECASE)
+            polish_match = re.search(r'<h2[^>]*>\s*<span[^>]*>\s*Polish\s*</span>\s*</h2>', html, re.IGNORECASE)
 
         if not polish_match:
             if self.verbose:
@@ -352,7 +352,9 @@ class PolishDictionaryAPI:
             return result
 
         if self.verbose:
-            print("[English] Found Polish language section")
+            # Show what section was matched
+            matched_text = self._strip_html(polish_match.group(0)).strip()
+            print(f"[English] Found Polish language section: '{matched_text}'")
 
         # Get content after Polish heading until next h2
         polish_start = polish_match.end()
