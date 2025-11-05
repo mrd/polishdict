@@ -4,6 +4,7 @@ Formats dictionary results for terminal display
 """
 
 from typing import Dict, List
+from urllib.parse import quote
 from colorama import Fore, Style, init
 
 # Initialize colorama for cross-platform colored output
@@ -56,6 +57,11 @@ class DictionaryFormatter:
                 output.extend(self._format_definitions(polish_data['definitions']))
                 output.append("")
 
+            # Add URL to Polish Wiktionary page
+            polish_url = f"https://pl.wiktionary.org/wiki/{quote(word)}"
+            output.append(self._colorize(f"More: {polish_url}", Fore.BLUE))
+            output.append("")
+
         # Process English Wiktionary data
         english_data = word_data.get('english_wiktionary')
         if english_data and (english_data.get('definitions') or
@@ -85,6 +91,11 @@ class DictionaryFormatter:
                 for pos, grammar in english_data['grammar'].items():
                     output.append(f"  [{pos}] {grammar}")
                 output.append("")
+
+            # Add URL to English Wiktionary page
+            english_url = f"https://en.wiktionary.org/wiki/{quote(word)}"
+            output.append(self._colorize(f"More: {english_url}", Fore.BLUE))
+            output.append("")
 
         # Check if no results found
         if not (polish_data and polish_data.get('definitions')) and \
