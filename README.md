@@ -69,13 +69,20 @@ Look up an adjective:
 ### Options
 
 - `--no-color`: Disable colored output for terminals that don't support colors
+- `-v, --verbose`: Enable verbose debug output to troubleshoot parsing issues
 - `--version`: Show version information
 - `--help`: Show help message
 
-### Example with options
+### Examples with options
 
+Disable colored output:
 ```bash
 ./polishdict.py --no-color komputer
+```
+
+Enable verbose debug mode (useful for troubleshooting):
+```bash
+./polishdict.py -v dobra
 ```
 
 ## Output Format
@@ -156,6 +163,17 @@ If the tool reports "No definitions found", this could mean:
 - The word might be misspelled
 - It might be a very rare or archaic term
 - Try searching for the base form of the word (e.g., infinitive for verbs)
+
+**Debug tip**: Use the `-v` or `--verbose` flag to see detailed information about what the parser is finding:
+```bash
+./polishdict.py -v <word>
+```
+This will show you:
+- HTML content length received from Wiktionary
+- Number of headings found
+- Parts of speech detected
+- Number of definitions extracted
+- Which definitions were added or skipped
 
 ### Network errors
 
