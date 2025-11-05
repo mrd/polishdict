@@ -250,9 +250,10 @@ class PolishDictionaryAPI:
             content_after_znaczenia = polish_section[znaczenia_pos.end():]
 
             # Find all <p><i>POS info</i></p> followed by <dl><dd>definitions</dd></dl> blocks
-            # Pattern: <p><i>rzeczownik...</i></p> then <dl><dd>(1.1) def...</dd></dl>
+            # Pattern: <p>...rzeczownik...</p> then <dl><dd>(1.1) def...</dd></dl>
+            # Note: Some have nested <i><i>...</i></i> tags, so we match the whole <p>...</p>
             pos_blocks = re.findall(
-                r'<p><i>([^<]*?(?:rzeczownik|czasownik|przymiotnik|przysłówek|zaimek|przyimek|spójnik|wykrzyknik|liczebnik|partykuła)[^<]*?)</i></p>\s*<dl>(.*?)</dl>',
+                r'<p>(.*?(?:rzeczownik|czasownik|przymiotnik|przysłówek|zaimek|przyimek|spójnik|wykrzyknik|liczebnik|partykuła|wykrzyknienie).*?)</p>\s*<dl>(.*?)</dl>',
                 content_after_znaczenia,
                 re.DOTALL | re.IGNORECASE
             )
