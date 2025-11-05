@@ -283,6 +283,10 @@ class PolishDictionaryAPI:
                     print(f"[Polish] Found {len(dd_items)} definitions for this POS")
 
                 for item in dd_items:
+                    # Remove embedded style/script/link tags first
+                    item = re.sub(r'<style[^>]*>.*?</style>', '', item, flags=re.DOTALL)
+                    item = re.sub(r'<script[^>]*>.*?</script>', '', item, flags=re.DOTALL)
+                    item = re.sub(r'<link[^>]*>', '', item)
                     # Clean up the definition
                     definition = self._clean_text(self._strip_html(item))
 
