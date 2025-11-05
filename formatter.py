@@ -17,12 +17,13 @@ class DictionaryFormatter:
     def __init__(self, use_color: bool = True):
         self.use_color = use_color
 
-    def format_result(self, word_data: Dict) -> str:
+    def format_result(self, word_data: Dict, show_declension: bool = False) -> str:
         """
         Format the complete word lookup result
 
         Args:
             word_data: Dictionary containing word information
+            show_declension: If True, show declension tables instead of definitions
 
         Returns:
             Formatted string ready for display
@@ -37,25 +38,39 @@ class DictionaryFormatter:
         polish_data = word_data.get('polish_wiktionary')
         if polish_data and (polish_data.get('definitions') or
                            polish_data.get('etymology') or
-                           polish_data.get('pronunciation')):
+                           polish_data.get('pronunciation') or
+                           polish_data.get('declension')):
             output.append(self._colorize("=== POLISH (Polski) ===", Fore.CYAN, bold=True))
             output.append("")
 
-            if polish_data.get('pronunciation'):
-                output.append(self._colorize("Pronunciation:", Fore.YELLOW))
-                for pron in polish_data['pronunciation']:
-                    output.append(f"  • {pron}")
-                output.append("")
+            if show_declension:
+                # Show declension tables
+                if polish_data.get('declension'):
+                    output.append(self._colorize("Odmiana (Declension):", Fore.YELLOW))
+                    output.append("")
+                    for table in polish_data['declension']:
+                        output.extend(self._format_table(table))
+                        output.append("")
+                else:
+                    output.append("No declension tables found.")
+                    output.append("")
+            else:
+                # Show definitions (default behavior)
+                if polish_data.get('pronunciation'):
+                    output.append(self._colorize("Pronunciation:", Fore.YELLOW))
+                    for pron in polish_data['pronunciation']:
+                        output.append(f"  • {pron}")
+                    output.append("")
 
-            if polish_data.get('etymology'):
-                output.append(self._colorize("Etymology:", Fore.YELLOW))
-                output.append(f"  {polish_data['etymology']}")
-                output.append("")
+                if polish_data.get('etymology'):
+                    output.append(self._colorize("Etymology:", Fore.YELLOW))
+                    output.append(f"  {polish_data['etymology']}")
+                    output.append("")
 
-            if polish_data.get('definitions'):
-                output.append(self._colorize("Definitions:", Fore.YELLOW))
-                output.extend(self._format_definitions(polish_data['definitions']))
-                output.append("")
+                if polish_data.get('definitions'):
+                    output.append(self._colorize("Definitions:", Fore.YELLOW))
+                    output.extend(self._format_definitions(polish_data['definitions']))
+                    output.append("")
 
             # Add URL to Polish Wiktionary page
             polish_url = f"https://pl.wiktionary.org/wiki/{quote(word)}"
@@ -66,31 +81,45 @@ class DictionaryFormatter:
         english_data = word_data.get('english_wiktionary')
         if english_data and (english_data.get('definitions') or
                             english_data.get('etymology') or
-                            english_data.get('pronunciation')):
+                            english_data.get('pronunciation') or
+                            english_data.get('declension')):
             output.append(self._colorize("=== ENGLISH ===", Fore.CYAN, bold=True))
             output.append("")
 
-            if english_data.get('pronunciation'):
-                output.append(self._colorize("Pronunciation:", Fore.YELLOW))
-                for pron in english_data['pronunciation']:
-                    output.append(f"  • {pron}")
-                output.append("")
+            if show_declension:
+                # Show declension tables
+                if english_data.get('declension'):
+                    output.append(self._colorize("Declension:", Fore.YELLOW))
+                    output.append("")
+                    for table in english_data['declension']:
+                        output.extend(self._format_table(table))
+                        output.append("")
+                else:
+                    output.append("No declension tables found.")
+                    output.append("")
+            else:
+                # Show definitions (default behavior)
+                if english_data.get('pronunciation'):
+                    output.append(self._colorize("Pronunciation:", Fore.YELLOW))
+                    for pron in english_data['pronunciation']:
+                        output.append(f"  • {pron}")
+                    output.append("")
 
-            if english_data.get('etymology'):
-                output.append(self._colorize("Etymology:", Fore.YELLOW))
-                output.append(f"  {english_data['etymology']}")
-                output.append("")
+                if english_data.get('etymology'):
+                    output.append(self._colorize("Etymology:", Fore.YELLOW))
+                    output.append(f"  {english_data['etymology']}")
+                    output.append("")
 
-            if english_data.get('definitions'):
-                output.append(self._colorize("Definitions:", Fore.YELLOW))
-                output.extend(self._format_definitions(english_data['definitions']))
-                output.append("")
+                if english_data.get('definitions'):
+                    output.append(self._colorize("Definitions:", Fore.YELLOW))
+                    output.extend(self._format_definitions(english_data['definitions']))
+                    output.append("")
 
-            if english_data.get('grammar'):
-                output.append(self._colorize("Grammar Information:", Fore.YELLOW))
-                for pos, grammar in english_data['grammar'].items():
-                    output.append(f"  [{pos}] {grammar}")
-                output.append("")
+                if english_data.get('grammar'):
+                    output.append(self._colorize("Grammar Information:", Fore.YELLOW))
+                    for pos, grammar in english_data['grammar'].items():
+                        output.append(f"  [{pos}] {grammar}")
+                    output.append("")
 
             # Add URL to English Wiktionary page
             english_url = f"https://en.wiktionary.org/wiki/{quote(word)}#Polish"
@@ -171,3 +200,48 @@ class DictionaryFormatter:
             result = Style.BRIGHT + result
         result += Style.RESET_ALL
         return result
+
+    def _format_table(self, table_data: List[List[str]]) -> List[str]:
+        """Format a table for terminal display with proper column alignment"""
+        if not table_data:
+            return ["  (empty table)"]
+
+        output = []
+
+        # Calculate column widths
+        col_widths = []
+        num_cols = max(len(row) for row in table_data)
+
+        for col_idx in range(num_cols):
+            max_width = 0
+            for row in table_data:
+                if col_idx < len(row):
+                    # Strip ANSI color codes for width calculation
+                    cell_text = row[col_idx]
+                    max_width = max(max_width, len(cell_text))
+            col_widths.append(max_width)
+
+        # Format each row
+        for row_idx, row in enumerate(table_data):
+            formatted_cells = []
+            for col_idx, cell in enumerate(row):
+                width = col_widths[col_idx]
+                # Pad cell to column width
+                padded_cell = cell.ljust(width)
+
+                # Colorize header row (first row)
+                if row_idx == 0:
+                    padded_cell = self._colorize(padded_cell, Fore.CYAN, bold=True)
+
+                formatted_cells.append(padded_cell)
+
+            # Join cells with separator
+            row_str = "  │ " + " │ ".join(formatted_cells) + " │"
+            output.append(row_str)
+
+            # Add separator after header row
+            if row_idx == 0:
+                separator = "  ├" + "┼".join("─" * (w + 2) for w in col_widths) + "┤"
+                output.append(separator)
+
+        return output

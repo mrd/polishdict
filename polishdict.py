@@ -39,6 +39,13 @@ Examples:
     )
 
     parser.add_argument(
+        '-d', '--declension', '--odmiana',
+        action='store_true',
+        dest='declension',
+        help='Show declension tables instead of definitions'
+    )
+
+    parser.add_argument(
         '--verbose',
         '-v',
         action='store_true',
@@ -60,13 +67,15 @@ Examples:
     try:
         # Fetch word data
         if not args.verbose:
-            print(f"Looking up '{args.word}'...\n")
+            mode_str = 'declensions' if args.declension else 'definitions'
+            print(f"Looking up '{args.word}' ({mode_str})...\n")
         else:
-            print(f"Looking up '{args.word}' (verbose mode)...\n")
+            mode_str = 'declensions' if args.declension else 'definitions'
+            print(f"Looking up '{args.word}' ({mode_str}, verbose mode)...\n")
         word_data = api.fetch_word(args.word)
 
         # Format and display results
-        output = formatter.format_result(word_data)
+        output = formatter.format_result(word_data, show_declension=args.declension)
         print(output)
 
     except KeyboardInterrupt:

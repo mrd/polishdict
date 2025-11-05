@@ -143,7 +143,8 @@ class PolishDictionaryAPI:
             'definitions': [],
             'etymology': None,
             'pronunciation': [],
-            'grammar': {}
+            'grammar': {},
+            'declension': []
         }
 
         if self.verbose:
@@ -301,6 +302,29 @@ class PolishDictionaryAPI:
         elif self.verbose:
             print(f"[Polish] No znaczenia section found at all")
 
+        # Find declension tables (odmiana)
+        odmiana_pos = re.search(r'<dt[^>]*>.*?data-field="odmiana".*?</dt>', polish_section)
+        if odmiana_pos:
+            if self.verbose:
+                print(f"[Polish] Found odmiana marker")
+
+            # Extract content after odmiana marker
+            content_after_odmiana = polish_section[odmiana_pos.end():]
+
+            # Find HTML tables in the odmiana section
+            tables = re.findall(r'<table[^>]*class="[^"]*wikitable[^"]*odmiana[^"]*"[^>]*>(.*?)</table>', content_after_odmiana, re.DOTALL)
+
+            if self.verbose:
+                print(f"[Polish] Found {len(tables)} declension tables")
+
+            for table_html in tables:
+                # Parse the table
+                table_data = self._parse_html_table(table_html)
+                if table_data:
+                    result['declension'].append(table_data)
+                    if self.verbose:
+                        print(f"[Polish] Parsed table with {len(table_data)} rows")
+
         return result
 
     def _parse_english_wiktionary_html(self, html: str, word: str) -> Dict:
@@ -309,7 +333,8 @@ class PolishDictionaryAPI:
             'definitions': [],
             'etymology': None,
             'pronunciation': [],
-            'grammar': {}
+            'grammar': {},
+            'declension': []
         }
 
         if self.verbose:
@@ -440,6 +465,27 @@ class PolishDictionaryAPI:
                     etym_html = re.sub(r'<link[^>]*>', '', etym_html)
                     result['etymology'] = self._clean_text(self._strip_html(etym_html))
 
+            # Check for declension
+            elif 'Declension' in heading:
+                if self.verbose:
+                    print("[English] Found declension section")
+                section_start = match.end()
+                section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(polish_section)
+                decl_section = polish_section[section_start:section_end]
+
+                # Find tables in the declension section
+                tables = re.findall(r'<table[^>]*>(.*?)</table>', decl_section, re.DOTALL)
+                if self.verbose:
+                    print(f"[English] Found {len(tables)} declension tables")
+
+                for table_html in tables:
+                    # Parse the table
+                    table_data = self._parse_html_table(table_html)
+                    if table_data:
+                        result['declension'].append(table_data)
+                        if self.verbose:
+                            print(f"[English] Parsed table with {len(table_data)} rows")
+
         return result
 
     def _strip_html(self, text: str) -> str:
@@ -466,3 +512,29 @@ class PolishDictionaryAPI:
         # Remove leading/trailing whitespace
         text = text.strip()
         return text
+
+    def _parse_html_table(self, table_html: str) -> List[List[str]]:
+        """Parse an HTML table into a list of rows"""
+        rows = []
+
+        # Find all table rows
+        tr_matches = re.findall(r'<tr[^>]*>(.*?)</tr>', table_html, re.DOTALL)
+
+        for tr in tr_matches:
+            row = []
+            # Find all cells (both th and td)
+            cells = re.findall(r'<t[hd][^>]*>(.*?)</t[hd]>', tr, re.DOTALL)
+
+            for cell in cells:
+                # Remove style/script/link tags
+                cell = re.sub(r'<style[^>]*>.*?</style>', '', cell, flags=re.DOTALL)
+                cell = re.sub(r'<script[^>]*>.*?</script>', '', cell, flags=re.DOTALL)
+                cell = re.sub(r'<link[^>]*>', '', cell)
+                # Clean the cell content
+                cell_text = self._clean_text(self._strip_html(cell))
+                row.append(cell_text)
+
+            if row:  # Only add non-empty rows
+                rows.append(row)
+
+        return rows
