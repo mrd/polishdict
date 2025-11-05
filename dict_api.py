@@ -169,11 +169,6 @@ class PolishDictionaryAPI:
                 })
                 break
 
-        # Find part of speech sections and extract definitions from each
-        pos_patterns = ['rzeczownik', 'czasownik', 'przymiotnik', 'przysłówek',
-                       'zaimek', 'przyimek', 'spójnik', 'wykrzyknik', 'liczebnik',
-                       'partykuła', 'wykrzyknienie']
-
         # Find all headings with their positions
         heading_matches = list(re.finditer(r'<h[234][^>]*>(.*?)</h[234]>', html, re.IGNORECASE))
 
@@ -183,11 +178,56 @@ class PolishDictionaryAPI:
                 h_text = self._strip_html(hm.group(1))
                 print(f"[Polish]   Heading {idx+1}: '{h_text}'")
 
+        # First, find the Polish language section
+        polish_section_start = None
+        polish_section_end = None
+
+        for i, match in enumerate(heading_matches):
+            heading_text = self._strip_html(match.group(1)).lower()
+
+            # Look for Polish language section
+            if 'język polski' in heading_text or heading_text.endswith('(polski)'):
+                polish_section_start = match.end()
+                # Find the next language section (or end of document)
+                for j in range(i + 1, len(heading_matches)):
+                    next_heading = self._strip_html(heading_matches[j].group(1)).lower()
+                    if 'język' in next_heading or next_heading.count('(') > 0:
+                        polish_section_end = heading_matches[j].start()
+                        break
+                if polish_section_end is None:
+                    polish_section_end = len(html)
+                break
+
+        if polish_section_start is None:
+            if self.verbose:
+                print("[Polish] No Polish language section found")
+            return result
+
+        if self.verbose:
+            print(f"[Polish] Found Polish section from {polish_section_start} to {polish_section_end}")
+
+        # Extract only the Polish section
+        polish_section = html[polish_section_start:polish_section_end]
+
+        # Now find POS sections within the Polish section
+        pos_patterns = ['rzeczownik', 'czasownik', 'przymiotnik', 'przysłówek',
+                       'zaimek', 'przyimek', 'spójnik', 'wykrzyknik', 'liczebnik',
+                       'partykuła', 'wykrzyknienie']
+
+        # Find all headings within Polish section
+        heading_matches = list(re.finditer(r'<h[234][^>]*>(.*?)</h[234]>', polish_section, re.IGNORECASE))
+
+        if self.verbose:
+            print(f"[Polish] Found {len(heading_matches)} headings within Polish section")
+            for idx, hm in enumerate(heading_matches):
+                h_text = self._strip_html(hm.group(1))
+                print(f"[Polish]   Sub-heading {idx+1}: '{h_text}'")
+
         for i, match in enumerate(heading_matches):
             heading_text = self._strip_html(match.group(1)).lower()
 
             if self.verbose:
-                print(f"\n[Polish] Processing heading: '{heading_text}'")
+                print(f"\n[Polish] Processing sub-heading: '{heading_text}'")
 
             # Check if this is a part of speech heading
             matched_pos = None
@@ -202,8 +242,8 @@ class PolishDictionaryAPI:
 
                 # Extract content between this heading and the next one
                 section_start = match.end()
-                section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(html)
-                section_content = html[section_start:section_end]
+                section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(polish_section)
+                section_content = polish_section[section_start:section_end]
 
                 if self.verbose:
                     print(f"[Polish] Section length: {len(section_content)} chars")
@@ -250,9 +290,11 @@ class PolishDictionaryAPI:
 
             # Check for pronunciation section
             elif 'wymowa' in heading_text:
+                if self.verbose:
+                    print(f"[Polish] Found pronunciation section")
                 section_start = match.end()
-                section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(html)
-                pron_section = html[section_start:section_end]
+                section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(polish_section)
+                pron_section = polish_section[section_start:section_end]
 
                 # Find pronunciation list items
                 pron_items = re.findall(r'<li[^>]*>(.*?)</li>', pron_section, re.DOTALL)
@@ -260,17 +302,23 @@ class PolishDictionaryAPI:
                     clean_pron = self._clean_text(self._strip_html(item))
                     if clean_pron and len(clean_pron) > 2:
                         result['pronunciation'].append(clean_pron)
+                        if self.verbose:
+                            print(f"[Polish] Added pronunciation: {clean_pron}")
 
             # Check for etymology section
             elif 'etymologia' in heading_text:
+                if self.verbose:
+                    print(f"[Polish] Found etymology section")
                 section_start = match.end()
-                section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(html)
-                etym_section = html[section_start:section_end]
+                section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(polish_section)
+                etym_section = polish_section[section_start:section_end]
 
                 # Get first paragraph
                 p_match = re.search(r'<p[^>]*>(.*?)</p>', etym_section, re.DOTALL)
                 if p_match:
                     result['etymology'] = self._clean_text(self._strip_html(p_match.group(1)))
+                    if self.verbose:
+                        print(f"[Polish] Added etymology: {result['etymology'][:60]}...")
 
         return result
 
