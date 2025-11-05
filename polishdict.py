@@ -20,9 +20,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s dom          Look up the word "dom"
-  %(prog)s być          Look up the verb "być"
-  %(prog)s --no-color   Look up with no colored output
+  %(prog)s dom              Look up the word "dom"
+  %(prog)s być              Look up the verb "być"
+  %(prog)s --no-color dobra Look up with no colored output
+  %(prog)s -v słowo         Look up with verbose debug output
         """
     )
 
@@ -38,6 +39,13 @@ Examples:
     )
 
     parser.add_argument(
+        '--verbose',
+        '-v',
+        action='store_true',
+        help='Enable verbose debug output'
+    )
+
+    parser.add_argument(
         '--version',
         action='version',
         version='%(prog)s 1.0'
@@ -46,12 +54,15 @@ Examples:
     args = parser.parse_args()
 
     # Initialize API and formatter
-    api = PolishDictionaryAPI()
+    api = PolishDictionaryAPI(verbose=args.verbose)
     formatter = DictionaryFormatter(use_color=not args.no_color)
 
     try:
         # Fetch word data
-        print(f"Looking up '{args.word}'...\n")
+        if not args.verbose:
+            print(f"Looking up '{args.word}'...\n")
+        else:
+            print(f"Looking up '{args.word}' (verbose mode)...\n")
         word_data = api.fetch_word(args.word)
 
         # Format and display results
