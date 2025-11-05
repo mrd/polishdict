@@ -5,6 +5,7 @@ Interfaces with Wiktionary to fetch Polish word definitions and grammatical info
 
 import requests
 import re
+import html
 from html.parser import HTMLParser
 from typing import Dict, List, Optional
 
@@ -612,19 +613,14 @@ class PolishDictionaryAPI:
         """Remove HTML tags from text"""
         # Remove all HTML tags
         text = re.sub(r'<[^>]+>', '', text)
-        # Decode common HTML entities
-        text = text.replace('&nbsp;', ' ')
-        text = text.replace('&amp;', '&')
-        text = text.replace('&lt;', '<')
-        text = text.replace('&gt;', '>')
-        text = text.replace('&quot;', '"')
-        text = text.replace('&#39;', "'")
+        # Decode all HTML entities (&#47;, &#91;, &#93;, &nbsp;, etc.)
+        text = html.unescape(text)
         return text
 
     def _clean_text(self, text: str) -> str:
         """Clean and normalize text from HTML"""
-        # Remove citations like [1], [2]
-        text = re.sub(r'\[\d+\]', '', text)
+        # Remove citations like [1], [2], [note 1], etc.
+        text = re.sub(r'\[[^\]]*\d+[^\]]*\]', '', text)
         # Remove edit links
         text = re.sub(r'\[edit\]', '', text, flags=re.IGNORECASE)
         # Remove multiple spaces
