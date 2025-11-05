@@ -149,6 +149,26 @@ class PolishDictionaryAPI:
         if self.verbose:
             print(f"[Polish] HTML length: {len(html)}")
 
+        # Check if this is a form/redirect page (common patterns)
+        form_patterns = [
+            r'zobacz hasło:?\s*<a[^>]*>([^<]+)</a>',
+            r'forma\s+(?:rzeczownika|czasownika|przymiotnika)\s+<a[^>]*>([^<]+)</a>',
+            r'<p[^>]*>\s*forma.*?<a[^>]*>([^<]+)</a>'
+        ]
+
+        for pattern in form_patterns:
+            form_ref = re.search(pattern, html, re.IGNORECASE)
+            if form_ref:
+                lemma = self._strip_html(form_ref.group(1))
+                if self.verbose:
+                    print(f"[Polish] This appears to be a form page, main entry: '{lemma}'")
+                result['definitions'].append({
+                    'pos': 'forma',
+                    'definition': f'Zobacz hasło: {lemma}',
+                    'language': 'pl'
+                })
+                break
+
         # Find part of speech sections and extract definitions from each
         pos_patterns = ['rzeczownik', 'czasownik', 'przymiotnik', 'przysłówek',
                        'zaimek', 'przyimek', 'spójnik', 'wykrzyknik', 'liczebnik',
@@ -159,9 +179,15 @@ class PolishDictionaryAPI:
 
         if self.verbose:
             print(f"[Polish] Found {len(heading_matches)} headings")
+            for idx, hm in enumerate(heading_matches):
+                h_text = self._strip_html(hm.group(1))
+                print(f"[Polish]   Heading {idx+1}: '{h_text}'")
 
         for i, match in enumerate(heading_matches):
             heading_text = self._strip_html(match.group(1)).lower()
+
+            if self.verbose:
+                print(f"\n[Polish] Processing heading: '{heading_text}'")
 
             # Check if this is a part of speech heading
             matched_pos = None
@@ -179,10 +205,17 @@ class PolishDictionaryAPI:
                 section_end = heading_matches[i + 1].start() if i + 1 < len(heading_matches) else len(html)
                 section_content = html[section_start:section_end]
 
+                if self.verbose:
+                    print(f"[Polish] Section length: {len(section_content)} chars")
+
                 # Find the first ordered or unordered list in this section
                 list_match = re.search(r'<ol[^>]*>(.*?)</ol>', section_content, re.DOTALL)
                 if not list_match:
                     list_match = re.search(r'<ul[^>]*>(.*?)</ul>', section_content, re.DOTALL)
+                    if self.verbose and list_match:
+                        print(f"[Polish] Found unordered list (ul)")
+                elif self.verbose:
+                    print(f"[Polish] Found ordered list (ol)")
 
                 if list_match:
                     # Extract list items from this specific list
@@ -210,6 +243,10 @@ class PolishDictionaryAPI:
                             print(f"[Polish] Skipped: {definition[:60]}...")
                 elif self.verbose:
                     print(f"[Polish] No list found for {matched_pos}")
+                    # Show a snippet of the section to debug
+                    snippet = self._strip_html(section_content[:500]).strip()
+                    if snippet:
+                        print(f"[Polish] Section content preview: {snippet[:200]}...")
 
             # Check for pronunciation section
             elif 'wymowa' in heading_text:
@@ -249,11 +286,21 @@ class PolishDictionaryAPI:
         if self.verbose:
             print(f"[English] HTML length: {len(html)}")
 
-        # Find Polish language section
+        # Find Polish language section - try multiple patterns
         polish_match = re.search(r'<h2[^>]*>.*?<span[^>]*id="Polish"[^>]*>.*?</h2>', html, re.DOTALL)
+
+        # Try alternative patterns if first one fails
+        if not polish_match:
+            polish_match = re.search(r'<h2[^>]*>.*?Polish.*?</h2>', html, re.DOTALL | re.IGNORECASE)
+
         if not polish_match:
             if self.verbose:
-                print("[English] No Polish section found")
+                # Show what h2 sections we found
+                h2_matches = re.findall(r'<h2[^>]*>(.*?)</h2>', html, re.DOTALL)
+                print(f"[English] No Polish section found. Found {len(h2_matches)} h2 sections:")
+                for idx, h2 in enumerate(h2_matches[:10]):
+                    h2_clean = self._strip_html(h2).strip()
+                    print(f"[English]   Section {idx+1}: '{h2_clean}'")
             return result
 
         if self.verbose:
