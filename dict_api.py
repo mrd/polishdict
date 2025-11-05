@@ -388,6 +388,10 @@ class PolishDictionaryAPI:
                         print(f"[English] Found {len(list_items)} list items for {matched_pos}")
 
                     for item in list_items:
+                        # Remove embedded style/script/link tags first
+                        item = re.sub(r'<style[^>]*>.*?</style>', '', item, flags=re.DOTALL)
+                        item = re.sub(r'<script[^>]*>.*?</script>', '', item, flags=re.DOTALL)
+                        item = re.sub(r'<link[^>]*>', '', item)
                         # Extract only the main definition (before nested lists or examples)
                         item = re.sub(r'<[ou]l[^>]*>.*?</[ou]l>', '', item, flags=re.DOTALL)
                         clean_text = self._clean_text(self._strip_html(item))
@@ -411,6 +415,10 @@ class PolishDictionaryAPI:
                 pron_section = polish_section[section_start:section_end]
                 pron_items = re.findall(r'<li[^>]*>(.*?)</li>', pron_section)
                 for item in pron_items[:3]:
+                    # Remove embedded style/script/link tags
+                    item = re.sub(r'<style[^>]*>.*?</style>', '', item, flags=re.DOTALL)
+                    item = re.sub(r'<script[^>]*>.*?</script>', '', item, flags=re.DOTALL)
+                    item = re.sub(r'<link[^>]*>', '', item)
                     clean_pron = self._clean_text(self._strip_html(item))
                     if clean_pron and len(clean_pron) > 2:
                         result['pronunciation'].append(clean_pron)
@@ -425,7 +433,12 @@ class PolishDictionaryAPI:
                 # Get first paragraph after etymology heading
                 p_match = re.search(r'<p[^>]*>(.*?)</p>', etym_section, re.DOTALL)
                 if p_match:
-                    result['etymology'] = self._clean_text(self._strip_html(p_match.group(1)))
+                    etym_html = p_match.group(1)
+                    # Remove embedded style/script/link tags
+                    etym_html = re.sub(r'<style[^>]*>.*?</style>', '', etym_html, flags=re.DOTALL)
+                    etym_html = re.sub(r'<script[^>]*>.*?</script>', '', etym_html, flags=re.DOTALL)
+                    etym_html = re.sub(r'<link[^>]*>', '', etym_html)
+                    result['etymology'] = self._clean_text(self._strip_html(etym_html))
 
         return result
 
