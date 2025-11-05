@@ -242,6 +242,11 @@ class PolishDictionaryAPI:
 
             znaczenia_html = znaczenia_match.group(1)
 
+            if self.verbose:
+                print(f"[Polish] Znaczenia HTML length: {len(znaczenia_html)} chars")
+                print(f"[Polish] Znaczenia HTML sample:")
+                print(f"[Polish] {znaczenia_html[:500]}")
+
             # Look for part of speech indicator (in parentheses or span)
             pos_match = re.search(r'\(([^)]+)\)', znaczenia_html)
             detected_pos = None
