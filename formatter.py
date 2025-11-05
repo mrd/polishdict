@@ -93,7 +93,7 @@ class DictionaryFormatter:
                 output.append("")
 
             # Add URL to English Wiktionary page
-            english_url = f"https://en.wiktionary.org/wiki/{quote(word)}"
+            english_url = f"https://en.wiktionary.org/wiki/{quote(word)}#Polish"
             output.append(self._colorize(f"More: {english_url}", Fore.BLUE))
             output.append("")
 
