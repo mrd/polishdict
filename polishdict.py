@@ -111,7 +111,13 @@ Examples:
         # If in declension mode and we got a form page, automatically look up the lemma
         if args.declension:
             polish_data = word_data.get('polish_wiktionary')
-            if polish_data and polish_data.get('lemma'):
+            if args.verbose:
+                print(f"[DEBUG] Polish data exists: {polish_data is not None}")
+                if polish_data:
+                    print(f"[DEBUG] Lemma field: {polish_data.get('lemma')}")
+                    print(f"[DEBUG] Has declension: {bool(polish_data.get('declension'))}")
+
+            if polish_data and polish_data.get('lemma') and not polish_data.get('declension'):
                 lemma = polish_data['lemma']
                 if args.verbose:
                     print(f"Detected form page. Looking up lemma '{lemma}' for declension...\n")
