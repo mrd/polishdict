@@ -115,7 +115,39 @@ Examples:
         if word_data.get('english_wiktionary') and word_data['english_wiktionary'].get('definitions'):
             has_results = True
 
-        # If no results and word contains ASCII characters that could be Polish, try fuzzy search
+        # If no results, try case-insensitive variants
+        if not has_results:
+            case_variants = []
+
+            # Try lowercase if not already lowercase
+            if args.word != args.word.lower():
+                case_variants.append(args.word.lower())
+
+            # Try title case if not already title case
+            if args.word != args.word.title():
+                case_variants.append(args.word.title())
+
+            for variant in case_variants:
+                if args.verbose:
+                    print(f"Trying case variant: {variant}")
+                variant_data = api.fetch_word(variant)
+
+                # Check if this variant has results
+                variant_has_results = False
+                if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
+                    variant_has_results = True
+                if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
+                    variant_has_results = True
+
+                if variant_has_results:
+                    if not args.verbose:
+                        print(f"Found results for '{variant}' (case correction from '{args.word}'):\n")
+                    word_data = variant_data
+                    word_data['word'] = f"{variant}"
+                    has_results = True
+                    break
+
+        # If still no results and word contains ASCII characters that could be Polish, try fuzzy search
         if not has_results and any(c in args.word.lower() for c in 'acelnosyz'):
             if not args.verbose:
                 print(f"No results found for '{args.word}'. Trying Polish character variants...\n")
