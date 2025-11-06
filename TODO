@@ -3,5 +3,5 @@
 * Make sure to include the verb (im)perfective status, on the web it is shown after the word 'Verb' with the codes: pf or impf
 * Show the diminutive form (shown on the web after the keyword 'diminutive' in the English site anyway)
 * Actually show all of the pieces of info after the word, including gender, diminutive, augmentative, etc. On the English site, for example, for 'pies' there is: pies m animal (diminutive piesek, augmentative psisko, related adjective psi) 
-* fuzzy search (esp. for polish letters)
+* fuzzy search (esp. for polish letters), case-insensitive search
 * interpret &#...; codes in text mode into something sensible for text mode, or omit them entirely. In the printed declension table, also omit footnotes (e.g. numbers contained within brackets denoted by &#91; and &#93;) and make sure that &#47; becomes a forward slash.
