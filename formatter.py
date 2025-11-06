@@ -63,16 +63,16 @@ class DictionaryFormatter:
                         table_type_label = "koniugacja" if table_info.get('type') == 'conjugation' else "odmiana"
                         if table_info.get('start_def') and table_info.get('end_def'):
                             if table_info['start_def'] == table_info['end_def']:
-                                def_range = f"For definition {table_info['start_def']}"
+                                def_range = f"Dla definicji {table_info['start_def']}"
                             else:
-                                def_range = f"For definitions {table_info['start_def']}-{table_info['end_def']}"
+                                def_range = f"Dla definicji {table_info['start_def']}-{table_info['end_def']}"
 
                             if table_info.get('pos'):
                                 output.append(self._colorize(f"{def_range} ({table_info['pos']} - {table_type_label}):", Fore.GREEN))
                             else:
                                 output.append(self._colorize(f"{def_range} ({table_type_label}):", Fore.GREEN))
                         else:
-                            output.append(self._colorize(f"Table {idx + 1} ({table_type_label}):", Fore.GREEN))
+                            output.append(self._colorize(f"Tabela {idx + 1} ({table_type_label}):", Fore.GREEN))
 
                         output.extend(self._format_table(table_info['table']))
                         output.append("")
@@ -172,11 +172,15 @@ class DictionaryFormatter:
                     output.append("")
 
             # Add URL to English Wiktionary page with smart anchor
-            # If in declension mode and we have declension/conjugation sections, link to them
-            if show_declension and (english_data.get('conjugation_anchor') or english_data.get('declension_anchor')):
-                # Prefer conjugation anchor if available (for verbs), otherwise use declension
-                anchor = english_data.get('conjugation_anchor') or english_data.get('declension_anchor')
-                english_url = f"https://en.wiktionary.org/wiki/{quote(word)}#{anchor}"
+            if show_declension:
+                # In declension mode, try to link to the specific section
+                if english_data.get('conjugation_anchor') or english_data.get('declension_anchor'):
+                    # Use extracted anchor (e.g., Declension_2, Conjugation)
+                    anchor = english_data.get('conjugation_anchor') or english_data.get('declension_anchor')
+                    english_url = f"https://en.wiktionary.org/wiki/{quote(word)}#{anchor}"
+                else:
+                    # Fallback to generic #Declension anchor
+                    english_url = f"https://en.wiktionary.org/wiki/{quote(word)}#Declension"
             else:
                 # Default to Polish section anchor
                 english_url = f"https://en.wiktionary.org/wiki/{quote(word)}#Polish"
