@@ -372,10 +372,11 @@ class PolishDictionaryAPI:
         if not result['lemma'] and result['definitions']:
             for defn in result['definitions']:
                 definition_text = defn.get('definition', '')
-                # Patterns: "lm od: word", "D od: word", "forma od: word", etc.
+                # Patterns: "lm od: word", "D od: word", "forma od: word", verb conjugations, etc.
                 lemma_patterns = [
                     r'(?:lm|lp|D|C|B|Ms|W|N)\s+od:\s+([^\s,;]+)',  # Case abbreviations
                     r'forma\s+od:\s+([^\s,;]+)',
+                    r'czasownika\s+([^\s,;.]+)',  # "czasownika być" = of verb być
                     r'od:\s+([^\s,;]+)'  # Generic "from: word"
                 ]
                 for pattern in lemma_patterns:
@@ -635,9 +636,10 @@ class PolishDictionaryAPI:
         if not result['lemma'] and result['definitions']:
             for defn in result['definitions']:
                 definition_text = defn.get('definition', '')
-                # Patterns: "plural of word", "genitive of word", "inflection of word", etc.
+                # Patterns: "plural of word", "genitive of word", "inflection of word", verb forms, etc.
                 lemma_patterns = [
                     r'(?:plural|singular|genitive|dative|accusative|instrumental|locative|vocative)\s+(?:of|form of)\s+([^\s,;]+)',
+                    r'(?:first|second|third)-person\s+(?:singular|plural)\s+(?:present|past|future|imperative)\s+of\s+([^\s,;.]+)',  # Verb conjugations
                     r'inflection of\s+([^\s,;]+)',
                     r'form of\s+([^\s,;]+)'
                 ]
