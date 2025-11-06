@@ -46,6 +46,49 @@ def generate_polish_variants(word: str) -> list:
     return variants[:20]
 
 
+def check_and_follow_lemma(api, word_data, original_word, declension_mode, verbose):
+    """Check if word_data contains a lemma reference and fetch it if needed"""
+    if not declension_mode:
+        return word_data
+
+    polish_data = word_data.get('polish_wiktionary')
+    english_data = word_data.get('english_wiktionary')
+
+    # Try to find a lemma from either source
+    lemma = None
+    source = None
+    if polish_data and polish_data.get('lemma'):
+        lemma = polish_data['lemma']
+        source = 'Polish'
+    elif english_data and english_data.get('lemma'):
+        lemma = english_data['lemma']
+        source = 'English'
+
+    if verbose:
+        print(f"[DEBUG] Polish lemma: {polish_data.get('lemma') if polish_data else None}")
+        print(f"[DEBUG] English lemma: {english_data.get('lemma') if english_data else None}")
+        print(f"[DEBUG] Selected lemma: {lemma}")
+        print(f"[DEBUG] Has declension: {bool(polish_data.get('declension')) if polish_data else False}")
+
+    # If we have a lemma and no declension tables, look up the lemma
+    has_declension = (polish_data and polish_data.get('declension')) or \
+                   (english_data and english_data.get('declension'))
+
+    if lemma and not has_declension:
+        if verbose:
+            print(f"Detected form page (from {source}). Looking up lemma '{lemma}' for declension...\n")
+        else:
+            print(f"'{word_data.get('word', original_word)}' is a form of '{lemma}'. Showing declension for '{lemma}'...\n")
+
+        # Fetch the lemma
+        lemma_data = api.fetch_word(lemma)
+        # Update the word to show both
+        lemma_data['word'] = f"{lemma} (from form: {word_data.get('word', original_word)})"
+        return lemma_data
+
+    return word_data
+
+
 def main():
     """Main entry point for the Polish dictionary CLI"""
 
@@ -109,39 +152,7 @@ Examples:
         word_data = api.fetch_word(args.word)
 
         # If in declension mode and we got a form page, automatically look up the lemma
-        if args.declension:
-            polish_data = word_data.get('polish_wiktionary')
-            english_data = word_data.get('english_wiktionary')
-
-            # Try to find a lemma from either source
-            lemma = None
-            if polish_data and polish_data.get('lemma'):
-                lemma = polish_data['lemma']
-                source = 'Polish'
-            elif english_data and english_data.get('lemma'):
-                lemma = english_data['lemma']
-                source = 'English'
-
-            if args.verbose:
-                print(f"[DEBUG] Polish lemma: {polish_data.get('lemma') if polish_data else None}")
-                print(f"[DEBUG] English lemma: {english_data.get('lemma') if english_data else None}")
-                print(f"[DEBUG] Selected lemma: {lemma}")
-                print(f"[DEBUG] Has declension: {bool(polish_data.get('declension')) if polish_data else False}")
-
-            # If we have a lemma and no declension tables, look up the lemma
-            has_declension = (polish_data and polish_data.get('declension')) or \
-                           (english_data and english_data.get('declension'))
-
-            if lemma and not has_declension:
-                if args.verbose:
-                    print(f"Detected form page (from {source}). Looking up lemma '{lemma}' for declension...\n")
-                else:
-                    print(f"'{args.word}' is a form of '{lemma}'. Showing declension for '{lemma}'...\n")
-
-                # Fetch the lemma
-                word_data = api.fetch_word(lemma)
-                # Update the word to show both
-                word_data['word'] = f"{lemma} (from form: {args.word})"
+        word_data = check_and_follow_lemma(api, word_data, args.word, args.declension, args.verbose)
 
         # Check if we got any results
         has_results = False
@@ -179,6 +190,8 @@ Examples:
                         print(f"Found results for '{variant}' (case correction from '{args.word}'):\n")
                     word_data = variant_data
                     word_data['word'] = f"{variant}"
+                    # Check if this variant is a form and follow lemma if needed
+                    word_data = check_and_follow_lemma(api, word_data, variant, args.declension, args.verbose)
                     has_results = True
                     break
 
@@ -204,6 +217,8 @@ Examples:
                     print(f"Found results for '{variant}' (corrected from '{args.word}'):\n")
                     word_data = variant_data
                     word_data['word'] = f"{variant} (from {args.word})"
+                    # Check if this variant is a form and follow lemma if needed
+                    word_data = check_and_follow_lemma(api, word_data, variant, args.declension, args.verbose)
                     break
 
         # Format and display results
