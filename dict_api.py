@@ -640,6 +640,7 @@ class PolishDictionaryAPI:
                 lemma_patterns = [
                     r'(?:plural|singular|genitive|dative|accusative|instrumental|locative|vocative)\s+(?:of|form of)\s+([^\s,;]+)',
                     r'(?:first|second|third)-person\s+(?:singular|plural)\s+(?:present|past|future|imperative)\s+of\s+([^\s,;.]+)',  # Verb conjugations
+                    r'(?:impersonal|imperfective|perfective)\s+(?:present|past|future|imperative)\s+of\s+([^\s,;.]+)',  # Impersonal/aspect forms
                     r'inflection of\s+([^\s,;]+)',
                     r'form of\s+([^\s,;]+)'
                 ]
