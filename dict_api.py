@@ -368,6 +368,27 @@ class PolishDictionaryAPI:
                     if self.verbose:
                         print(f"[Polish] Parsed table with {len(table_data)} rows")
 
+        # Check if definitions contain lemma references (e.g., "lm od: pies", "D od: dom")
+        if not result['lemma'] and result['definitions']:
+            for defn in result['definitions']:
+                definition_text = defn.get('definition', '')
+                # Patterns: "lm od: word", "D od: word", "forma od: word", etc.
+                lemma_patterns = [
+                    r'(?:lm|lp|D|C|B|Ms|W|N)\s+od:\s+([^\s,;]+)',  # Case abbreviations
+                    r'forma\s+od:\s+([^\s,;]+)',
+                    r'od:\s+([^\s,;]+)'  # Generic "from: word"
+                ]
+                for pattern in lemma_patterns:
+                    lemma_match = re.search(pattern, definition_text, re.IGNORECASE)
+                    if lemma_match:
+                        lemma = lemma_match.group(1).strip()
+                        result['lemma'] = lemma
+                        if self.verbose:
+                            print(f"[Polish] Extracted lemma from definition: '{lemma}'")
+                        break
+                if result['lemma']:
+                    break
+
         return result
 
     def _parse_english_wiktionary_html(self, html: str, word: str) -> Dict:
@@ -380,7 +401,8 @@ class PolishDictionaryAPI:
             'declension': [],
             'pos_blocks': [],  # Track POS blocks with definition ranges
             'declension_anchor': None,  # Anchor for declension/conjugation section
-            'conjugation_anchor': None  # Anchor for conjugation section
+            'conjugation_anchor': None,  # Anchor for conjugation section
+            'lemma': None  # If this is a form, store the lemma word
         }
         current_def_num = 1  # Track definition numbers
         current_pos_block = None  # Track current POS being processed
@@ -608,6 +630,27 @@ class PolishDictionaryAPI:
             result['pos_blocks'].append(current_pos_block)
             if self.verbose:
                 print(f"[English] Completed POS block '{current_pos_block['pos']}' with definitions {current_pos_block['start_def']}-{current_pos_block['end_def']}")
+
+        # Check if definitions contain lemma references (e.g., "plural of pies", "genitive of dom")
+        if not result['lemma'] and result['definitions']:
+            for defn in result['definitions']:
+                definition_text = defn.get('definition', '')
+                # Patterns: "plural of word", "genitive of word", "inflection of word", etc.
+                lemma_patterns = [
+                    r'(?:plural|singular|genitive|dative|accusative|instrumental|locative|vocative)\s+(?:of|form of)\s+([^\s,;]+)',
+                    r'inflection of\s+([^\s,;]+)',
+                    r'form of\s+([^\s,;]+)'
+                ]
+                for pattern in lemma_patterns:
+                    lemma_match = re.search(pattern, definition_text, re.IGNORECASE)
+                    if lemma_match:
+                        lemma = lemma_match.group(1).strip()
+                        result['lemma'] = lemma
+                        if self.verbose:
+                            print(f"[English] Extracted lemma from definition: '{lemma}'")
+                        break
+                if result['lemma']:
+                    break
 
         return result
 

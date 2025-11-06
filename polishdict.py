@@ -111,16 +111,30 @@ Examples:
         # If in declension mode and we got a form page, automatically look up the lemma
         if args.declension:
             polish_data = word_data.get('polish_wiktionary')
-            if args.verbose:
-                print(f"[DEBUG] Polish data exists: {polish_data is not None}")
-                if polish_data:
-                    print(f"[DEBUG] Lemma field: {polish_data.get('lemma')}")
-                    print(f"[DEBUG] Has declension: {bool(polish_data.get('declension'))}")
+            english_data = word_data.get('english_wiktionary')
 
-            if polish_data and polish_data.get('lemma') and not polish_data.get('declension'):
+            # Try to find a lemma from either source
+            lemma = None
+            if polish_data and polish_data.get('lemma'):
                 lemma = polish_data['lemma']
+                source = 'Polish'
+            elif english_data and english_data.get('lemma'):
+                lemma = english_data['lemma']
+                source = 'English'
+
+            if args.verbose:
+                print(f"[DEBUG] Polish lemma: {polish_data.get('lemma') if polish_data else None}")
+                print(f"[DEBUG] English lemma: {english_data.get('lemma') if english_data else None}")
+                print(f"[DEBUG] Selected lemma: {lemma}")
+                print(f"[DEBUG] Has declension: {bool(polish_data.get('declension')) if polish_data else False}")
+
+            # If we have a lemma and no declension tables, look up the lemma
+            has_declension = (polish_data and polish_data.get('declension')) or \
+                           (english_data and english_data.get('declension'))
+
+            if lemma and not has_declension:
                 if args.verbose:
-                    print(f"Detected form page. Looking up lemma '{lemma}' for declension...\n")
+                    print(f"Detected form page (from {source}). Looking up lemma '{lemma}' for declension...\n")
                 else:
                     print(f"'{args.word}' is a form of '{lemma}'. Showing declension for '{lemma}'...\n")
 
