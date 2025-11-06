@@ -146,7 +146,8 @@ class PolishDictionaryAPI:
             'pronunciation': [],
             'grammar': {},
             'declension': [],
-            'pos_blocks': []  # Track POS blocks with definition ranges
+            'pos_blocks': [],  # Track POS blocks with definition ranges
+            'lemma': None  # If this is a form, store the lemma word
         }
 
         if self.verbose:
@@ -165,6 +166,7 @@ class PolishDictionaryAPI:
                 lemma = self._strip_html(form_ref.group(1))
                 if self.verbose:
                     print(f"[Polish] This appears to be a form page, main entry: '{lemma}'")
+                result['lemma'] = lemma  # Store lemma for automatic lookup
                 result['definitions'].append({
                     'pos': 'forma',
                     'definition': f'Zobacz hasło: {lemma}',

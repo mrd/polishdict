@@ -108,6 +108,21 @@ Examples:
 
         word_data = api.fetch_word(args.word)
 
+        # If in declension mode and we got a form page, automatically look up the lemma
+        if args.declension:
+            polish_data = word_data.get('polish_wiktionary')
+            if polish_data and polish_data.get('lemma'):
+                lemma = polish_data['lemma']
+                if args.verbose:
+                    print(f"Detected form page. Looking up lemma '{lemma}' for declension...\n")
+                else:
+                    print(f"'{args.word}' is a form of '{lemma}'. Showing declension for '{lemma}'...\n")
+
+                # Fetch the lemma
+                word_data = api.fetch_word(lemma)
+                # Update the word to show both
+                word_data['word'] = f"{lemma} (from form: {args.word})"
+
         # Check if we got any results
         has_results = False
         if word_data.get('polish_wiktionary') and word_data['polish_wiktionary'].get('definitions'):
