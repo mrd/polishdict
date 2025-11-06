@@ -453,7 +453,7 @@ class PolishDictionaryAPI:
         pos_patterns = ['Noun', 'Verb', 'Adjective', 'Adverb', 'Pronoun',
                        'Preposition', 'Conjunction', 'Interjection', 'Numeral', 'Particle']
 
-        heading_matches = list(re.finditer(r'<h[34]([^>]*)>(.*?)</h[34]>', polish_section, re.IGNORECASE))
+        heading_matches = list(re.finditer(r'<h[345]([^>]*)>(.*?)</h[345]>', polish_section, re.IGNORECASE))
 
         if self.verbose:
             print(f"[English] Found {len(heading_matches)} headings in Polish section")
