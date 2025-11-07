@@ -82,8 +82,8 @@ def check_and_follow_lemma(api, word_data, original_word, declension_mode, verbo
 
         # Fetch the lemma
         lemma_data = api.fetch_word(lemma)
-        # Update the word to show both
-        lemma_data['word'] = f"{lemma} (from form: {word_data.get('word', original_word)})"
+        # Keep 'word' clean for URLs, add display_word for header
+        lemma_data['display_word'] = f"{lemma} (from form: {word_data.get('word', original_word)})"
         return lemma_data
 
     return word_data

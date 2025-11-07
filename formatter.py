@@ -31,7 +31,8 @@ class DictionaryFormatter:
         output = []
 
         word = word_data.get('word', 'Unknown')
-        output.append(self._format_header(word))
+        display_word = word_data.get('display_word', word)  # Use display_word for header if available
+        output.append(self._format_header(display_word))
         output.append("")
 
         # Process Polish Wiktionary data
