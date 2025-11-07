@@ -374,10 +374,10 @@ class PolishDictionaryAPI:
                 definition_text = defn.get('definition', '')
                 # Patterns: "lm od: word", "D od: word", "forma od: word", verb conjugations, etc.
                 lemma_patterns = [
-                    r'(?:lm|lp|D|C|B|Ms|W|N)\s+od:\s+([^\s,;]+)',  # Case abbreviations
-                    r'forma\s+od:\s+([^\s,;]+)',
-                    r'czasownika\s+([^\s,;.]+)',  # "czasownika być" = of verb być
-                    r'od:\s+([^\s,;]+)'  # Generic "from: word"
+                    r'(?:lm|lp|D|C|B|Ms|W|N)\s+od:\s+([^\s,;:.]+)',  # Case abbreviations
+                    r'forma\s+od:\s+([^\s,;:.]+)',
+                    r'czasownika\s+([^\s,;:.]+)',  # "czasownika być" = of verb być
+                    r'od:\s+([^\s,;:.]+)'  # Generic "from: word"
                 ]
                 for pattern in lemma_patterns:
                     lemma_match = re.search(pattern, definition_text, re.IGNORECASE)
@@ -638,11 +638,11 @@ class PolishDictionaryAPI:
                 definition_text = defn.get('definition', '')
                 # Patterns: "plural of word", "genitive of word", "inflection of word", verb forms, etc.
                 lemma_patterns = [
-                    r'(?:plural|singular|genitive|dative|accusative|instrumental|locative|vocative)\s+(?:of|form of)\s+([^\s,;]+)',
-                    r'(?:first|second|third)-person\s+(?:singular|plural)\s+(?:present|past|future|imperative)\s+of\s+([^\s,;.]+)',  # Verb conjugations
-                    r'(?:impersonal|imperfective|perfective)\s+(?:present|past|future|imperative)\s+of\s+([^\s,;.]+)',  # Impersonal/aspect forms
-                    r'inflection of\s+([^\s,;]+)',
-                    r'form of\s+([^\s,;]+)'
+                    r'(?:plural|singular|genitive|dative|accusative|instrumental|locative|vocative)\s+(?:of|form of)\s+([^\s,;:.]+)',
+                    r'(?:first|second|third)-person\s+(?:singular|plural)\s+(?:present|past|future|imperative)\s+of\s+([^\s,;:.]+)',  # Verb conjugations
+                    r'(?:impersonal|imperfective|perfective)\s+(?:present|past|future|imperative)\s+of\s+([^\s,;:.]+)',  # Impersonal/aspect forms
+                    r'inflection of\s+([^\s,;:.]+)',
+                    r'form of\s+([^\s,;:.]+)'
                 ]
                 for pattern in lemma_patterns:
                     lemma_match = re.search(pattern, definition_text, re.IGNORECASE)
