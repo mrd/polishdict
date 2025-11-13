@@ -4,9 +4,14 @@ Polish Dictionary Web Application
 A Flask-based web interface for the Polish dictionary
 """
 
+import os
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
 import polishdict
 from polishdict.api import PolishDictionaryAPI
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -100,4 +105,12 @@ def lookup():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Read configuration from environment variables with defaults
+    host = os.getenv('FLASK_HOST', '127.0.0.1')
+    port = int(os.getenv('FLASK_PORT', '5000'))
+    debug = os.getenv('FLASK_DEBUG', 'True').lower() in ('true', '1', 'yes')
+
+    print(f"Starting Polish Dictionary web application on http://{host}:{port}")
+    print(f"Debug mode: {debug}")
+
+    app.run(debug=debug, host=host, port=port)

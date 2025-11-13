@@ -40,6 +40,7 @@ The tool requires:
 - `requests` - for making HTTP requests to Wiktionary API
 - `colorama` - for cross-platform colored terminal output
 - `flask` - for web application (optional, only needed for webapp.py)
+- `python-dotenv` - for loading environment variables from .env file (optional, only needed for webapp.py)
 
 ## Usage
 
@@ -78,6 +79,17 @@ python3 webapp.py
 ```
 
 Then open your browser to `http://localhost:5000`
+
+**Configuration**: You can customize the server host, port, and debug mode by creating a `.env` file:
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env to customize:
+# FLASK_HOST=0.0.0.0    # Listen on all interfaces (use 127.0.0.1 for local only)
+# FLASK_PORT=5000       # Port to run on
+# FLASK_DEBUG=True      # Enable/disable debug mode
+```
 
 The web interface features:
 - Mobile-friendly responsive design
