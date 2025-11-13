@@ -479,11 +479,26 @@ class MorphologyParser:
 8. Add validation
 9. Update API to expose structured data
 10. Update formatter to use structured data for display
+10a. Especially handle mobile web app display, which is tricky to do with large tables - this will need thought and discussion.
 
 ## Questions for Discussion
 
 1. Should we keep both raw tables AND structured data, or replace raw with structured?
+
+Keep both.
+
 2. How should we handle alternative/variant forms? (e.g., list vs single value)
+
+A dict with keys ["primary", "Kashubian", "archaic", ...]
+
 3. Should we validate completeness of paradigms or allow partial data?
+
+Partial, I think.
+
 4. How important is support for archaic/regional forms?
+
+Not terribly important but you can include it as above.
+
 5. Should we include grammatical rules/patterns in metadata?
+
+If they can be described in a reasonably brief way.
