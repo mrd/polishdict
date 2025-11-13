@@ -1,18 +1,24 @@
-# Polish Dictionary CLI Tool
+# Polish Dictionary
 
-A command-line tool to look up Polish words, returning definitions, parts of speech, and other grammatical information in both Polish and English from Wiktionary.
+A comprehensive Polish dictionary tool that looks up Polish words with definitions, grammatical information, and declension/conjugation tables from Wiktionary. Available as both a command-line tool and a web application.
 
 ## Features
 
-- **Dual-language support**: Fetches definitions from both Polish (pl.wiktionary.org) and English (en.wiktionary.org) Wiktionary
+- **Dual-source lookups**: Queries both Polish (pl.wiktionary.org) and English (en.wiktionary.org) Wiktionary
+- **Automatic lemma following**: In declension mode, automatically redirects inflected forms to their base forms
+- **Declension/conjugation tables**: View full inflection tables for nouns, adjectives, and verbs
+- **Fuzzy search**: Automatically tries Polish character variants (e.g., a→ą, c→ć) for misspelled words
 - **Comprehensive information**: Displays:
   - Word definitions
-  - Parts of speech (noun, verb, adjective, etc.)
+  - Parts of speech (noun, verb, adjective, proper noun, etc.)
   - Pronunciation (IPA notation when available)
   - Etymology
-  - Grammatical information
-- **Colored output**: Beautiful, easy-to-read colored terminal output (can be disabled)
-- **Simple interface**: Just type the word you want to look up
+  - Grammatical information (gender, aspect, etc.)
+- **Multiple interfaces**:
+  - Command-line tool with colored output
+  - Mobile-friendly web application
+  - Python module for integration into other projects
+- **Smart URL anchors**: Links directly to relevant sections in Wiktionary pages
 
 ## Installation
 
@@ -33,56 +39,78 @@ pip install -r requirements.txt
 The tool requires:
 - `requests` - for making HTTP requests to Wiktionary API
 - `colorama` - for cross-platform colored terminal output
+- `flask` - for web application (optional, only needed for webapp.py)
 
 ## Usage
 
-### Basic Usage
+### Command-Line Interface
 
-```bash
-python3 polishdict.py <word>
-```
-
-or make it executable and run directly:
-
-```bash
-chmod +x polishdict.py
-./polishdict.py <word>
-```
-
-### Examples
-
-Look up a noun:
+Look up a Polish word:
 ```bash
 ./polishdict.py dom
 ```
 
-Look up a verb:
+Show declension/conjugation tables:
 ```bash
-./polishdict.py być
+./polishdict.py -d dom           # Show noun declension
+./polishdict.py -d być           # Show verb conjugation
+./polishdict.py --declension dobry  # Show adjective declension
 ```
 
-Look up an adjective:
+Inflected forms automatically redirect to lemmas in declension mode:
 ```bash
-./polishdict.py piękny
+./polishdict.py -d psy      # Redirects to "pies"
+./polishdict.py -d jestem   # Redirects to "być"
 ```
 
-### Options
-
-- `--no-color`: Disable colored output for terminals that don't support colors
-- `-v, --verbose`: Enable verbose debug output to troubleshoot parsing issues
-- `--version`: Show version information
-- `--help`: Show help message
-
-### Examples with options
-
-Disable colored output:
+Other options:
 ```bash
-./polishdict.py --no-color komputer
+./polishdict.py --no-color komputer  # Disable colored output
+./polishdict.py -v słowo             # Verbose debug mode
+./polishdict.py --help               # Show help message
 ```
 
-Enable verbose debug mode (useful for troubleshooting):
+### Web Application
+
+Start the Flask web server:
 ```bash
-./polishdict.py -v dobra
+python3 webapp.py
+```
+
+Then open your browser to `http://localhost:5000`
+
+The web interface features:
+- Mobile-friendly responsive design
+- Search form with declension mode checkbox
+- Color-coded sections for Polish/English definitions
+- Formatted tables for declension/conjugation
+- Automatic fuzzy search for misspellings
+- Direct links to Wiktionary pages
+
+### Python Module
+
+You can also use polishdict as a Python module in your own code:
+
+```python
+import polishdict
+
+# Look up a word
+word_data = polishdict.lookup_word('dom', show_declension=False)
+
+# Format the results for display
+formatted = polishdict.format_word_data(word_data, show_declension=False, use_color=True)
+print(formatted)
+
+# Or use the API directly
+from polishdict.api import PolishDictionaryAPI
+
+api = PolishDictionaryAPI(verbose=False)
+word_data = api.fetch_word('być')
+
+# Access specific data
+polish_defs = word_data['polish_wiktionary']['definitions']
+english_defs = word_data['english_wiktionary']['definitions']
+declension = word_data['polish_wiktionary']['declension']
 ```
 
 ## Output Format
@@ -191,11 +219,18 @@ Make sure your terminal supports UTF-8 encoding to properly display Polish chara
 
 ```
 polishdict/
-├── polishdict.py     # Main CLI script
-├── dict_api.py       # Wiktionary API interface
-├── formatter.py      # Output formatting
-├── requirements.txt  # Python dependencies
-└── README.md         # This file
+├── polishdict.py           # Command-line interface
+├── webapp.py               # Flask web application
+├── templates/
+│   └── index.html         # Web interface HTML
+├── polishdict/            # Core module
+│   ├── __init__.py       # Public API exports
+│   ├── api.py            # Wiktionary API client
+│   ├── formatter.py      # Terminal output formatter
+│   └── cli.py            # Shared utility functions
+├── requirements.txt       # Python dependencies
+├── TODO                   # Development tasks
+└── README.md             # This file
 ```
 
 ## API and Data Source
@@ -207,12 +242,12 @@ This tool uses:
 
 ## Contributing
 
-Suggestions and improvements are welcome! Some ideas for enhancement:
-- Cache frequently looked-up words
-- Add support for word forms/conjugations
-- Export definitions to file
-- Interactive mode
-- Support for other languages
+Suggestions and improvements are welcome! Some ideas for future enhancement:
+- Cache frequently looked-up words to reduce API calls
+- Export definitions to various formats (JSON, PDF, etc.)
+- Support for additional languages
+- Browser extension integration
+- Offline mode with downloaded database
 
 ## License
 
@@ -222,6 +257,7 @@ This tool is provided as-is for educational purposes. Wiktionary content is lice
 
 Created as a command-line utility for Polish language learners and enthusiasts.
 
-## Version
+## Version History
 
-1.0 - Initial release
+- **2.0** - Major refactoring: Python module structure, Flask web application, declension/conjugation tables, automatic lemma following, fuzzy search
+- **1.0** - Initial CLI release with basic lookups
