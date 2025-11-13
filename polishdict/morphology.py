@@ -155,25 +155,25 @@ class MorphologyParser:
     CASE_LABELS = {
         'mianownik': Case.NOMINATIVE,
         'mian.': Case.NOMINATIVE,
-        'M': Case.NOMINATIVE,
+        'm': Case.NOMINATIVE,
         'dopełniacz': Case.GENITIVE,
         'dop.': Case.GENITIVE,
-        'D': Case.GENITIVE,
+        'd': Case.GENITIVE,
         'celownik': Case.DATIVE,
         'cel.': Case.DATIVE,
-        'C': Case.DATIVE,
+        'c': Case.DATIVE,
         'biernik': Case.ACCUSATIVE,
         'biern.': Case.ACCUSATIVE,
-        'B': Case.ACCUSATIVE,
+        'b': Case.ACCUSATIVE,
         'narzędnik': Case.INSTRUMENTAL,
         'narz.': Case.INSTRUMENTAL,
-        'N': Case.INSTRUMENTAL,
+        'n': Case.INSTRUMENTAL,
         'miejscownik': Case.LOCATIVE,
         'miej.': Case.LOCATIVE,
-        'Ms': Case.LOCATIVE,
+        'ms': Case.LOCATIVE,
         'wołacz': Case.VOCATIVE,
         'woł.': Case.VOCATIVE,
-        'W': Case.VOCATIVE,
+        'w': Case.VOCATIVE,
     }
 
     # Number labels
@@ -317,13 +317,126 @@ class MorphologyParser:
             }
         )
 
-        # TODO: Implement actual parsing logic
-        # This is a placeholder - we'll implement the full logic in the next iteration
-
         if self.verbose:
             print(f"[MorphologyParser] Table structure: {structure}")
 
+        # Parse based on layout
+        if structure['layout'] == 'case_rows':
+            # Most common: cases in rows, numbers in columns
+            self._parse_noun_case_rows(raw_table, noun)
+        elif structure['layout'] == 'case_cols':
+            # Less common: cases in columns, numbers in rows
+            self._parse_noun_case_cols(raw_table, noun)
+        else:
+            if self.verbose:
+                print("[MorphologyParser] Unknown layout, attempting heuristic parsing")
+            # Try to parse with heuristics
+            self._parse_noun_case_rows(raw_table, noun)
+
         return noun
+
+    def _parse_noun_case_rows(self, raw_table: List[List[str]], noun: NounDeclension):
+        """
+        Parse noun table where cases are in rows.
+
+        Expected format:
+        Row 0: ['', 'liczba pojedyncza', 'liczba mnoga']  or  ['', 'lp', 'lm']
+        Row 1: ['mianownik', 'dom', 'domy']
+        Row 2: ['dopełniacz', 'domu', 'domów']
+        ...
+        """
+        if len(raw_table) < 2:
+            return
+
+        # Find header row (usually first row)
+        header_row = raw_table[0]
+
+        # Identify which columns are singular and plural
+        sing_col = None
+        plur_col = None
+
+        for col_idx, cell in enumerate(header_row):
+            cell_lower = self._normalize_cell(cell).lower()
+
+            # Check for singular markers
+            if any(label in cell_lower for label in ['pojedyncza', 'lp', 'l.poj', 'singular']):
+                sing_col = col_idx
+                if self.verbose:
+                    print(f"[MorphologyParser] Found singular column at index {col_idx}")
+
+            # Check for plural markers
+            if any(label in cell_lower for label in ['mnoga', 'lm', 'l.mn', 'plural']):
+                plur_col = col_idx
+                if self.verbose:
+                    print(f"[MorphologyParser] Found plural column at index {col_idx}")
+
+        # If not found in header, assume columns 1 and 2
+        if sing_col is None and len(header_row) >= 2:
+            sing_col = 1
+            if self.verbose:
+                print(f"[MorphologyParser] Assuming singular at column 1")
+        if plur_col is None and len(header_row) >= 3:
+            plur_col = 2
+            if self.verbose:
+                print(f"[MorphologyParser] Assuming plural at column 2")
+
+        # Parse data rows
+        for row_idx in range(1, len(raw_table)):
+            row = raw_table[row_idx]
+            if len(row) < 2:
+                continue
+
+            # First cell should be case label
+            case_label = self._normalize_cell(row[0]).lower().strip()
+
+            # Try to match case - exact match first for abbreviations
+            case = None
+
+            # Try exact match first (for abbreviations like M, D, C, etc.)
+            if case_label in self.CASE_LABELS:
+                case = self.CASE_LABELS[case_label]
+            else:
+                # Try substring match for full words
+                for label, case_enum in self.CASE_LABELS.items():
+                    if len(label) > 2:  # Only do substring matching for full words
+                        if label in case_label or case_label in label:
+                            case = case_enum
+                            break
+
+            if case is None:
+                if self.verbose:
+                    print(f"[MorphologyParser] Could not identify case for '{case_label}'")
+                continue
+
+            case_name = case.value  # e.g., 'nominative'
+
+            if self.verbose:
+                print(f"[MorphologyParser] Row {row_idx}: {case_name}")
+
+            # Extract singular form
+            if sing_col is not None and sing_col < len(row):
+                sing_form = self._normalize_cell(row[sing_col])
+                if sing_form and sing_form != '-' and sing_form != '—':
+                    noun.forms['singular'][case_name] = sing_form
+                    if self.verbose:
+                        print(f"[MorphologyParser]   singular: {sing_form}")
+
+            # Extract plural form
+            if plur_col is not None and plur_col < len(row):
+                plur_form = self._normalize_cell(row[plur_col])
+                if plur_form and plur_form != '-' and plur_form != '—':
+                    noun.forms['plural'][case_name] = plur_form
+                    if self.verbose:
+                        print(f"[MorphologyParser]   plural: {plur_form}")
+
+    def _parse_noun_case_cols(self, raw_table: List[List[str]], noun: NounDeclension):
+        """
+        Parse noun table where cases are in columns (less common).
+        """
+        # TODO: Implement if we encounter this layout
+        if self.verbose:
+            print("[MorphologyParser] case_cols layout not yet implemented")
+        pass
 
     def _parse_verb_conjugation(self, raw_table: List[List[str]], lemma: str) -> Optional[VerbConjugation]:
         """
