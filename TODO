@@ -1,0 +1,2 @@
+* extract 'aspect' in the morphology of verbs
+* use the structured output format when responding to the CLI './polishdict.py -d' option
