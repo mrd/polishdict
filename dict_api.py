@@ -450,7 +450,7 @@ class PolishDictionaryAPI:
         polish_section = html[polish_start:polish_end]
 
         # Find part of speech sections
-        pos_patterns = ['Noun', 'Verb', 'Adjective', 'Adverb', 'Pronoun',
+        pos_patterns = ['Noun', 'Proper noun', 'Verb', 'Adjective', 'Adverb', 'Pronoun',
                        'Preposition', 'Conjunction', 'Interjection', 'Numeral', 'Particle']
 
         heading_matches = list(re.finditer(r'<h[345]([^>]*)>(.*?)</h[345]>', polish_section, re.IGNORECASE))
