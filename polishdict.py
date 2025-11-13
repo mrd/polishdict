@@ -128,39 +128,49 @@ Examples:
         if word_data.get('english_wiktionary') and word_data['english_wiktionary'].get('definitions'):
             has_results = True
 
-        # If no results, try case-insensitive variants
-        if not has_results:
-            case_variants = []
+        # If no results, FIRST try lowercase if word contains uppercase letters
+        if not has_results and args.word != args.word.lower():
+            if args.verbose:
+                print(f"Trying lowercase variant: {args.word.lower()}")
+            variant_data = api.fetch_word(args.word.lower())
 
-            # Try lowercase if not already lowercase
-            if args.word != args.word.lower():
-                case_variants.append(args.word.lower())
+            # Check if this variant has results
+            variant_has_results = False
+            if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
+                variant_has_results = True
+            if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
+                variant_has_results = True
 
-            # Try title case if not already title case
-            if args.word != args.word.title():
-                case_variants.append(args.word.title())
+            if variant_has_results:
+                if not args.verbose:
+                    print(f"Found results for '{args.word.lower()}' (lowercase correction from '{args.word}'):\n")
+                word_data = variant_data
+                word_data['word'] = f"{args.word.lower()}"
+                # Check if this variant is a form and follow lemma if needed
+                word_data = check_and_follow_lemma(api, word_data, args.word.lower(), args.declension, args.verbose)
+                has_results = True
 
-            for variant in case_variants:
-                if args.verbose:
-                    print(f"Trying case variant: {variant}")
-                variant_data = api.fetch_word(variant)
+        # If still no results, try title case
+        if not has_results and args.word != args.word.title() and args.word.lower() != args.word.title():
+            if args.verbose:
+                print(f"Trying title case variant: {args.word.title()}")
+            variant_data = api.fetch_word(args.word.title())
 
-                # Check if this variant has results
-                variant_has_results = False
-                if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
-                    variant_has_results = True
-                if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
-                    variant_has_results = True
+            # Check if this variant has results
+            variant_has_results = False
+            if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
+                variant_has_results = True
+            if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
+                variant_has_results = True
 
-                if variant_has_results:
-                    if not args.verbose:
-                        print(f"Found results for '{variant}' (case correction from '{args.word}'):\n")
-                    word_data = variant_data
-                    word_data['word'] = f"{variant}"
-                    # Check if this variant is a form and follow lemma if needed
-                    word_data = check_and_follow_lemma(api, word_data, variant, args.declension, args.verbose)
-                    has_results = True
-                    break
+            if variant_has_results:
+                if not args.verbose:
+                    print(f"Found results for '{args.word.title()}' (title case correction from '{args.word}'):\n")
+                word_data = variant_data
+                word_data['word'] = f"{args.word.title()}"
+                # Check if this variant is a form and follow lemma if needed
+                word_data = check_and_follow_lemma(api, word_data, args.word.title(), args.declension, args.verbose)
+                has_results = True
 
         # If still no results and word contains ASCII characters that could be Polish, try fuzzy search
         if not has_results and any(c in args.word.lower() for c in 'acelnosyz'):
