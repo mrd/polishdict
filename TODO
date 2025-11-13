@@ -1,24 +1,3 @@
-* It is possible that Declension or Conjugation occurs in other languages on the English site. Then the Polish anchor might become #Declension_2 or #Conjugation_2 (or higher number). So it is necessary to examine the English webpage to determine the correct anchor to use to link to those sections directly.
-* Show the diminutive form (shown on the web after the keyword 'diminutive' in the English site anyway)
-  - Also show this for Proper Nouns (which seem to breaking the code currently)
-
-
-* problem with adjective declension lookup?
-    $ ./polishdict.py  -d innego
-    Looking up 'innego' (declensions)...
-
-    'innego' is a form of 'inny:'. Showing declension for 'inny:'...
-
-    No results found for 'innego'. Trying Polish character variants...
-
-    ============================================================
-      INNY: (FROM FORM: INNEGO)
-    ============================================================
-
-    No definitions found for this word.
-
-    This could mean:
-      • The word doesn't exist in Wiktionary
-      • It might be misspelled
-      • It might be a very rare or archaic term
+* Test with Proper Nouns to ensure they don't break the code
+  - User mentioned these might be breaking currently
 
