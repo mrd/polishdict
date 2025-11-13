@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
 import polishdict
 from polishdict.api import PolishDictionaryAPI
+from polishdict.search import search_with_fallback
 
 # Load environment variables from .env file
 load_dotenv()
@@ -62,69 +63,12 @@ def lookup():
 
     try:
         api = PolishDictionaryAPI(verbose=False)
-        word_data = api.fetch_word(word)
 
-        # Check for lemma and follow if in declension mode
-        word_data = check_and_follow_lemma(api, word_data, word, show_declension)
+        # Use shared search logic with fallback strategies
+        word_data, correction_msg = search_with_fallback(api, word, verbose=False)
 
-        # Check if we got any results
-        has_results = False
-        if word_data.get('polish_wiktionary') and word_data['polish_wiktionary'].get('definitions'):
-            has_results = True
-        if word_data.get('english_wiktionary') and word_data['english_wiktionary'].get('definitions'):
-            has_results = True
-
-        # If no results, FIRST try lowercase if word contains uppercase letters
-        if not has_results and word != word.lower():
-            variant_data = api.fetch_word(word.lower())
-
-            variant_has_results = False
-            if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
-                variant_has_results = True
-            if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
-                variant_has_results = True
-
-            if variant_has_results:
-                word_data = variant_data
-                word_data['word'] = f"{word.lower()}"
-                word_data = check_and_follow_lemma(api, word_data, word.lower(), show_declension)
-                has_results = True
-
-        # If still no results, try title case
-        if not has_results and word != word.title() and word.lower() != word.title():
-            variant_data = api.fetch_word(word.title())
-
-            variant_has_results = False
-            if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
-                variant_has_results = True
-            if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
-                variant_has_results = True
-
-            if variant_has_results:
-                word_data = variant_data
-                word_data['word'] = f"{word.title()}"
-                word_data = check_and_follow_lemma(api, word_data, word.title(), show_declension)
-                has_results = True
-
-        # Try fuzzy search if still no results
-        if not has_results and any(c in word.lower() for c in 'acelnosyz'):
-            from polishdict.cli import generate_polish_variants
-            variants = generate_polish_variants(word)
-
-            for variant in variants[:5]:  # Try first 5 variants
-                variant_data = api.fetch_word(variant)
-
-                variant_has_results = False
-                if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
-                    variant_has_results = True
-                if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
-                    variant_has_results = True
-
-                if variant_has_results:
-                    word_data = variant_data
-                    word_data['word'] = f"{variant} (from {word})"
-                    word_data = check_and_follow_lemma(api, word_data, variant, show_declension)
-                    break
+        # If in declension mode and we got a form page, automatically look up the lemma
+        word_data = check_and_follow_lemma(api, word_data, word_data.get('word', word), show_declension)
 
         return jsonify({
             'success': True,

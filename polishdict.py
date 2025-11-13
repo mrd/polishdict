@@ -10,7 +10,7 @@ import argparse
 import sys
 from polishdict.api import PolishDictionaryAPI
 from polishdict.formatter import DictionaryFormatter
-from polishdict.cli import generate_polish_variants
+from polishdict.search import search_with_fallback
 
 
 def check_and_follow_lemma(api, word_data, original_word, declension_mode, verbose):
@@ -116,87 +116,15 @@ Examples:
         else:
             print(f"Looking up '{args.word}' ({mode_str})...\n")
 
-        word_data = api.fetch_word(args.word)
+        # Use shared search logic with fallback strategies
+        word_data, correction_msg = search_with_fallback(api, args.word, verbose=args.verbose)
+
+        # If a correction was made, print the message
+        if correction_msg and not args.verbose:
+            print(f"Found results for '{word_data['word']}' ({correction_msg}):\n")
 
         # If in declension mode and we got a form page, automatically look up the lemma
-        word_data = check_and_follow_lemma(api, word_data, args.word, args.declension, args.verbose)
-
-        # Check if we got any results
-        has_results = False
-        if word_data.get('polish_wiktionary') and word_data['polish_wiktionary'].get('definitions'):
-            has_results = True
-        if word_data.get('english_wiktionary') and word_data['english_wiktionary'].get('definitions'):
-            has_results = True
-
-        # If no results, FIRST try lowercase if word contains uppercase letters
-        if not has_results and args.word != args.word.lower():
-            if args.verbose:
-                print(f"Trying lowercase variant: {args.word.lower()}")
-            variant_data = api.fetch_word(args.word.lower())
-
-            # Check if this variant has results
-            variant_has_results = False
-            if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
-                variant_has_results = True
-            if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
-                variant_has_results = True
-
-            if variant_has_results:
-                if not args.verbose:
-                    print(f"Found results for '{args.word.lower()}' (lowercase correction from '{args.word}'):\n")
-                word_data = variant_data
-                word_data['word'] = f"{args.word.lower()}"
-                # Check if this variant is a form and follow lemma if needed
-                word_data = check_and_follow_lemma(api, word_data, args.word.lower(), args.declension, args.verbose)
-                has_results = True
-
-        # If still no results, try title case
-        if not has_results and args.word != args.word.title() and args.word.lower() != args.word.title():
-            if args.verbose:
-                print(f"Trying title case variant: {args.word.title()}")
-            variant_data = api.fetch_word(args.word.title())
-
-            # Check if this variant has results
-            variant_has_results = False
-            if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
-                variant_has_results = True
-            if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
-                variant_has_results = True
-
-            if variant_has_results:
-                if not args.verbose:
-                    print(f"Found results for '{args.word.title()}' (title case correction from '{args.word}'):\n")
-                word_data = variant_data
-                word_data['word'] = f"{args.word.title()}"
-                # Check if this variant is a form and follow lemma if needed
-                word_data = check_and_follow_lemma(api, word_data, args.word.title(), args.declension, args.verbose)
-                has_results = True
-
-        # If still no results and word contains ASCII characters that could be Polish, try fuzzy search
-        if not has_results and any(c in args.word.lower() for c in 'acelnosyz'):
-            if not args.verbose:
-                print(f"No results found for '{args.word}'. Trying Polish character variants...\n")
-            variants = generate_polish_variants(args.word)
-
-            for variant in variants:
-                if args.verbose:
-                    print(f"Trying variant: {variant}")
-                variant_data = api.fetch_word(variant)
-
-                # Check if this variant has results
-                variant_has_results = False
-                if variant_data.get('polish_wiktionary') and variant_data['polish_wiktionary'].get('definitions'):
-                    variant_has_results = True
-                if variant_data.get('english_wiktionary') and variant_data['english_wiktionary'].get('definitions'):
-                    variant_has_results = True
-
-                if variant_has_results:
-                    print(f"Found results for '{variant}' (corrected from '{args.word}'):\n")
-                    word_data = variant_data
-                    word_data['word'] = f"{variant} (from {args.word})"
-                    # Check if this variant is a form and follow lemma if needed
-                    word_data = check_and_follow_lemma(api, word_data, variant, args.declension, args.verbose)
-                    break
+        word_data = check_and_follow_lemma(api, word_data, word_data.get('word', args.word), args.declension, args.verbose)
 
         # Format and display results
         output = formatter.format_result(word_data, show_declension=args.declension)

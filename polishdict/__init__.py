@@ -6,6 +6,7 @@ and grammatical information from Wiktionary.
 
 from .api import PolishDictionaryAPI
 from .formatter import DictionaryFormatter
+from .search import search_with_fallback
 
 __version__ = '1.0.0'
 
@@ -48,4 +49,4 @@ def format_word_data(word_data, show_declension=False, use_color=True):
     return formatter.format_result(word_data, show_declension=show_declension)
 
 
-__all__ = ['lookup_word', 'format_word_data', 'PolishDictionaryAPI', 'DictionaryFormatter']
+__all__ = ['lookup_word', 'format_word_data', 'PolishDictionaryAPI', 'DictionaryFormatter', 'search_with_fallback']
