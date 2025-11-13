@@ -469,137 +469,283 @@ class MorphologyParser:
 
     def _parse_verb_person_rows(self, raw_table: List[List[str]], verb: VerbConjugation):
         """
-        Parse verb table where persons are in rows.
+        Parse verb table - handles both simple and complex Wiktionary formats.
 
-        Expected formats:
+        Real Wiktionary format (być):
+        Row 0: ['forma', 'liczba pojedyncza', 'liczba mnoga']
+        Row 1: ['1. os.', '2. os.', '3. os.', '1. os.', '2. os.', '3. os.']
+        Row 2: ['bezokolicznik', 'być']
+        Row 3: ['czas teraźniejszy', 'jestem', 'jesteś', 'jest', 'jesteśmy', 'jesteście', 'są']
+        Row 4: ['czas przeszły', 'm', 'byłem', 'byłeś', 'był', 'byliśmy', 'byliście', 'byli']
+        Row 5: ['', 'ż', 'byłam', 'byłaś', 'była', 'byłyśmy', 'byłyście', 'były']
 
-        Simple (present tense):
-        Row 0: ['', 'lp', 'lm']
-        Row 1: ['1. os.', 'jestem', 'jesteśmy']
-        Row 2: ['2. os.', 'jesteś', 'jesteście']
-        Row 3: ['3. os.', 'jest', 'są']
-
-        Complex (past tense with gender):
-        Row 0: ['', 'lp', 'lm']
-        Row 1: ['1. os. m.', 'byłem', 'byliśmy']
-        Row 2: ['2. os. m.', 'byłeś', 'byliście']
-        ...
+        Columns 1-3: singular (1st, 2nd, 3rd person)
+        Columns 4-6: plural (1st, 2nd, 3rd person)
         """
         if len(raw_table) < 2:
             return
 
-        # Find header row
-        header_row = raw_table[0]
+        # Check if this is the complex Wiktionary format
+        if len(raw_table) > 1 and len(raw_table[0]) >= 2:
+            first_cell = self._normalize_cell(raw_table[0][0]).lower()
+            if 'forma' in first_cell or 'bezokolicznik' in first_cell:
+                # This is the complex Wiktionary format
+                self._parse_verb_complex_format(raw_table, verb)
+                return
 
-        # Identify which columns are singular and plural
-        sing_col = None
-        plur_col = None
+        # Fall back to simple format (my test cases)
+        self._parse_verb_simple_format(raw_table, verb)
 
-        for col_idx, cell in enumerate(header_row):
-            cell_lower = self._normalize_cell(cell).lower()
+    def _parse_verb_complex_format(self, raw_table: List[List[str]], verb: VerbConjugation):
+        """Parse the complex Wiktionary verb table format"""
 
-            if any(label in cell_lower for label in ['pojedyncza', 'lp', 'l.poj', 'singular']):
-                sing_col = col_idx
-                if self.verbose:
-                    print(f"[MorphologyParser] Found singular column at index {col_idx}")
+        # Columns: 0=form name, 1-3=singular (1,2,3 person), 4-6=plural (1,2,3 person)
+        sing_cols = [1, 2, 3]
+        plur_cols = [4, 5, 6]
 
-            if any(label in cell_lower for label in ['mnoga', 'lm', 'l.mn', 'plural']):
-                plur_col = col_idx
-                if self.verbose:
-                    print(f"[MorphologyParser] Found plural column at index {col_idx}")
+        current_tense = None
+        current_gender = None
 
-        # If not found in header, assume columns 1 and 2
-        if sing_col is None and len(header_row) >= 2:
-            sing_col = 1
-        if plur_col is None and len(header_row) >= 3:
-            plur_col = 2
-
-        # Parse data rows
-        for row_idx in range(1, len(raw_table)):
-            row = raw_table[row_idx]
+        for row_idx, row in enumerate(raw_table):
             if len(row) < 2:
                 continue
 
-            # First cell contains person (and possibly gender)
-            person_label = self._normalize_cell(row[0]).lower().strip()
+            first_cell = self._normalize_cell(row[0]).lower().strip()
 
-            # Try to extract person
-            person = None
-            for label, person_enum in self.PERSON_LABELS.items():
-                if label.lower() in person_label:
-                    person = person_enum
-                    break
-
-            if person is None:
-                if self.verbose:
-                    print(f"[MorphologyParser] Could not identify person for '{person_label}'")
+            # Skip header rows
+            if 'forma' in first_cell or first_cell.startswith('1.') or first_cell.startswith('pozostał'):
                 continue
 
-            # Try to extract gender (for past tense)
-            gender = None
-            for label, gender_enum in self.GENDER_LABELS.items():
-                if label.lower() in person_label:
-                    gender = gender_enum
-                    break
+            # Check for tense/mood markers
+            if 'teraźniejsz' in first_cell or 'present' in first_cell:
+                current_tense = 'present'
+                current_gender = None
+            elif 'przeszł' in first_cell or 'past' in first_cell:
+                current_tense = 'past'
+                current_gender = None  # Will be set by gender marker
+            elif 'przyszł' in first_cell or 'future' in first_cell:
+                current_tense = 'future'
+                current_gender = None
+            elif 'rozkazuj' in first_cell or 'imperative' in first_cell:
+                current_tense = 'imperative'
+                current_gender = None
+            elif 'przypuszcz' in first_cell or 'conditional' in first_cell:
+                current_tense = 'conditional'
+                current_gender = None
+            elif 'bezokolicznik' in first_cell or 'infinitive' in first_cell:
+                # Extract infinitive
+                if len(row) > 1:
+                    verb.forms['infinitive'] = self._normalize_cell(row[1])
+                continue
 
-            if self.verbose:
-                print(f"[MorphologyParser] Row {row_idx}: person={person.value}, gender={gender.value if gender else None}")
+            # Check for gender marker (single letter in first or second column)
+            if len(row) > 1:
+                second_cell = self._normalize_cell(row[1]).lower().strip()
+                # If first cell is empty and second is a gender, it's a gender row
+                if not first_cell or first_cell == '':
+                    if second_cell in ['m', 'm.', 'męski']:
+                        current_gender = 'masculine'
+                        first_cell_idx = 2  # Forms start from column 2
+                    elif second_cell in ['ż', 'ż.', 'żeński']:
+                        current_gender = 'feminine'
+                        first_cell_idx = 2
+                    elif second_cell in ['n', 'n.', 'nijaki']:
+                        current_gender = 'neuter'
+                        first_cell_idx = 2
+                    else:
+                        continue
+                # Or if tense name is in first cell and gender in second
+                elif second_cell in ['m', 'm.', 'męski', 'ż', 'ż.', 'żeński', 'n', 'n.', 'nijaki']:
+                    if second_cell in ['m', 'm.', 'męski']:
+                        current_gender = 'masculine'
+                    elif second_cell in ['ż', 'ż.', 'żeński']:
+                        current_gender = 'feminine'
+                    elif second_cell in ['n', 'n.', 'nijaki']:
+                        current_gender = 'neuter'
+                    first_cell_idx = 2  # Forms start from column 2
+                else:
+                    first_cell_idx = 1  # No gender, forms start from column 1
+            else:
+                first_cell_idx = 1
 
-            # Determine tense based on presence of gender
-            # (This is a heuristic - ideally we'd get tense from context/metadata)
-            tense = 'past' if gender else 'present'
+            if current_tense is None:
+                continue
 
-            # Initialize nested structure if needed
-            if tense not in verb.forms:
-                verb.forms[tense] = {}
+            # Initialize structure
+            if current_tense not in verb.forms:
+                verb.forms[current_tense] = {}
 
-            # For past tense, organize by gender first
-            if gender:
-                gender_key = gender.value
-                if gender_key not in verb.forms[tense]:
-                    verb.forms[tense][gender_key] = {
+            # Extract forms
+            if current_gender:
+                # Past/conditional tense with gender
+                if current_gender not in verb.forms[current_tense]:
+                    verb.forms[current_tense][current_gender] = {
                         'singular': {},
                         'plural': {}
                     }
 
-                # Extract singular form
-                if sing_col is not None and sing_col < len(row):
-                    sing_form = self._normalize_cell(row[sing_col])
-                    if sing_form and sing_form != '-' and sing_form != '—':
-                        verb.forms[tense][gender_key]['singular'][person.value] = sing_form
-                        if self.verbose:
-                            print(f"[MorphologyParser]   {tense}/{gender_key}/singular/{person.value}: {sing_form}")
+                # Extract singular forms (persons 1, 2, 3)
+                for i, col_idx in enumerate([first_cell_idx, first_cell_idx + 1, first_cell_idx + 2]):
+                    if col_idx < len(row):
+                        form = self._normalize_cell(row[col_idx])
+                        # Clean up alternative forms like "jestem / -(e)m"
+                        if '/' in form:
+                            form = form.split('/')[0].strip()
+                        if form and form not in ['-', '—', '']:
+                            verb.forms[current_tense][current_gender]['singular'][str(i + 1)] = form
+                            if self.verbose:
+                                print(f"[MorphologyParser]   {current_tense}/{current_gender}/singular/{i+1}: {form}")
 
-                # Extract plural form
-                if plur_col is not None and plur_col < len(row):
-                    plur_form = self._normalize_cell(row[plur_col])
-                    if plur_form and plur_form != '-' and plur_form != '—':
-                        verb.forms[tense][gender_key]['plural'][person.value] = plur_form
-                        if self.verbose:
-                            print(f"[MorphologyParser]   {tense}/{gender_key}/plural/{person.value}: {plur_form}")
-
+                # Extract plural forms (persons 1, 2, 3)
+                for i, col_idx in enumerate([first_cell_idx + 3, first_cell_idx + 4, first_cell_idx + 5]):
+                    if col_idx < len(row):
+                        form = self._normalize_cell(row[col_idx])
+                        if '/' in form:
+                            form = form.split('/')[0].strip()
+                        if form and form not in ['-', '—', '']:
+                            verb.forms[current_tense][current_gender]['plural'][str(i + 1)] = form
+                            if self.verbose:
+                                print(f"[MorphologyParser]   {current_tense}/{current_gender}/plural/{i+1}: {form}")
             else:
-                # Present tense (no gender)
-                if 'singular' not in verb.forms[tense]:
-                    verb.forms[tense]['singular'] = {}
-                if 'plural' not in verb.forms[tense]:
-                    verb.forms[tense]['plural'] = {}
+                # Present/future/imperative (no gender)
+                if 'singular' not in verb.forms[current_tense]:
+                    verb.forms[current_tense]['singular'] = {}
+                if 'plural' not in verb.forms[current_tense]:
+                    verb.forms[current_tense]['plural'] = {}
 
-                # Extract singular form
-                if sing_col is not None and sing_col < len(row):
-                    sing_form = self._normalize_cell(row[sing_col])
-                    if sing_form and sing_form != '-' and sing_form != '—':
-                        verb.forms[tense]['singular'][person.value] = sing_form
-                        if self.verbose:
-                            print(f"[MorphologyParser]   {tense}/singular/{person.value}: {sing_form}")
+                # Extract singular forms
+                for i, col_idx in enumerate([first_cell_idx, first_cell_idx + 1, first_cell_idx + 2]):
+                    if col_idx < len(row):
+                        form = self._normalize_cell(row[col_idx])
+                        if '/' in form:
+                            form = form.split('/')[0].strip()
+                        if form and form not in ['-', '—', '']:
+                            verb.forms[current_tense]['singular'][str(i + 1)] = form
+                            if self.verbose:
+                                print(f"[MorphologyParser]   {current_tense}/singular/{i+1}: {form}")
 
-                # Extract plural form
-                if plur_col is not None and plur_col < len(row):
-                    plur_form = self._normalize_cell(row[plur_col])
-                    if plur_form and plur_form != '-' and plur_form != '—':
-                        verb.forms[tense]['plural'][person.value] = plur_form
-                        if self.verbose:
-                            print(f"[MorphologyParser]   {tense}/plural/{person.value}: {plur_form}")
+                # Extract plural forms
+                for i, col_idx in enumerate([first_cell_idx + 3, first_cell_idx + 4, first_cell_idx + 5]):
+                    if col_idx < len(row):
+                        form = self._normalize_cell(row[col_idx])
+                        if '/' in form:
+                            form = form.split('/')[0].strip()
+                        if form and form not in ['-', '—', '']:
+                            verb.forms[current_tense]['plural'][str(i + 1)] = form
+                            if self.verbose:
+                                print(f"[MorphologyParser]   {current_tense}/plural/{i+1}: {form}")
+
+    def _parse_verb_simple_format(self, raw_table: List[List[str]], verb: VerbConjugation):
+        """
+        Parse simple verb table format (from test cases).
+
+        Simple format:
+        Row 0: ['', 'liczba pojedyncza', 'liczba mnoga']
+        Row 1: ['1. os.', 'jestem', 'jesteśmy']
+        Row 2: ['2. os.', 'jesteś', 'jesteście']
+        Row 3: ['3. os.', 'jest', 'są']
+
+        For past tense with genders:
+        Row 1: ['1. os. m.', 'byłem', 'byliśmy']
+        """
+        if len(raw_table) < 2:
+            return
+
+        # Determine tense and gender from person labels
+        # Default is present tense
+        current_tense = 'present'
+        current_gender = None
+
+        # Check first data row for gender markers or tense info
+        if len(raw_table) > 1:
+            first_label = self._normalize_cell(raw_table[1][0]).lower()
+            if 'm.' in first_label or first_label.endswith('m'):
+                current_gender = 'masculine'
+                current_tense = 'past'  # Past tense typically has gender
+            elif 'ż.' in first_label or first_label.endswith('ż'):
+                current_gender = 'feminine'
+                current_tense = 'past'
+            elif 'n.' in first_label or first_label.endswith('n'):
+                current_gender = 'neuter'
+                current_tense = 'past'
+
+        for row_idx, row in enumerate(raw_table):
+            if row_idx == 0:  # Skip header row
+                continue
+
+            if len(row) < 3:
+                continue
+
+            label = self._normalize_cell(row[0]).lower().strip()
+
+            if not label:
+                continue
+
+            # Update gender if it changes within the table
+            if 'ż.' in label or label.endswith('ż'):
+                current_gender = 'feminine'
+            elif 'n.' in label or label.endswith('n'):
+                current_gender = 'neuter'
+            elif 'm.' in label or label.endswith('m'):
+                current_gender = 'masculine'
+
+            # Extract person number
+            person = None
+            if '1' in label or label.startswith('1'):
+                person = '1'
+            elif '2' in label or label.startswith('2'):
+                person = '2'
+            elif '3' in label or label.startswith('3'):
+                person = '3'
+
+            if person is None:
+                continue
+
+            # Extract forms
+            singular_form = self._normalize_cell(row[1]) if len(row) > 1 else None
+            plural_form = self._normalize_cell(row[2]) if len(row) > 2 else None
+
+            # Build the nested structure
+            if current_tense not in verb.forms:
+                verb.forms[current_tense] = {}
+
+            if current_gender:
+                # Gendered tense (past, conditional)
+                if current_gender not in verb.forms[current_tense]:
+                    verb.forms[current_tense][current_gender] = {}
+
+                if singular_form and singular_form != '—':
+                    if 'singular' not in verb.forms[current_tense][current_gender]:
+                        verb.forms[current_tense][current_gender]['singular'] = {}
+                    verb.forms[current_tense][current_gender]['singular'][person] = singular_form
+
+                if plural_form and plural_form != '—':
+                    if 'plural' not in verb.forms[current_tense][current_gender]:
+                        verb.forms[current_tense][current_gender]['plural'] = {}
+                    verb.forms[current_tense][current_gender]['plural'][person] = plural_form
+            else:
+                # Non-gendered tense (present, future, imperative)
+                if singular_form and singular_form != '—':
+                    if 'singular' not in verb.forms[current_tense]:
+                        verb.forms[current_tense]['singular'] = {}
+                    verb.forms[current_tense]['singular'][person] = singular_form
+
+                if plural_form and plural_form != '—':
+                    if 'plural' not in verb.forms[current_tense]:
+                        verb.forms[current_tense]['plural'] = {}
+                    verb.forms[current_tense]['plural'][person] = plural_form
+
+            if self.verbose:
+                if current_gender:
+                    if singular_form:
+                        print(f"[MorphologyParser]   {current_tense}/{current_gender}/singular/{person}: {singular_form}")
+                    if plural_form:
+                        print(f"[MorphologyParser]   {current_tense}/{current_gender}/plural/{person}: {plural_form}")
+                else:
+                    if singular_form:
+                        print(f"[MorphologyParser]   {current_tense}/singular/{person}: {singular_form}")
+                    if plural_form:
+                        print(f"[MorphologyParser]   {current_tense}/plural/{person}: {plural_form}")
 
     def _parse_adjective_declension(self, raw_table: List[List[str]], lemma: str) -> Optional[AdjectiveDeclension]:
         """
