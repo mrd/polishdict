@@ -271,20 +271,26 @@ class PolishDictionaryAPI:
             for pos_text, definitions_html in pos_blocks:
                 # Extract POS from the <p><i> text
                 pos_clean = self._clean_text(pos_text).lower()
+
+                # Extract only the main POS description (before "zobacz", commas, semicolons)
+                # This prevents matching aspect/gender from related words
+                # e.g., "czasownik dokonany, zobacz też: robić (ndk)" → "czasownik dokonany"
+                pos_core = re.split(r'[,;]|zobacz|zobacz też|por\.|zob\.|cf\.', pos_clean)[0].strip()
+
                 detected_pos = None
                 pos_patterns = ['rzeczownik', 'czasownik', 'przymiotnik', 'przysłówek',
                                'zaimek', 'przyimek', 'spójnik', 'wykrzyknik', 'liczebnik',
                                'partykuła', 'wykrzyknienie']
                 for pos in pos_patterns:
-                    if pos in pos_clean:
+                    if pos in pos_core:
                         detected_pos = pos
                         break
 
-                # Extract grammatical properties from POS text
-                grammar_props = self._extract_grammar_properties(pos_clean, detected_pos)
+                # Extract grammatical properties from core POS text only
+                grammar_props = self._extract_grammar_properties(pos_core, detected_pos)
 
                 if self.verbose:
-                    print(f"[Polish] Processing POS: {detected_pos or pos_clean}")
+                    print(f"[Polish] Processing POS: {detected_pos or pos_core}")
                     if grammar_props:
                         print(f"[Polish] Grammar properties: {grammar_props}")
 
