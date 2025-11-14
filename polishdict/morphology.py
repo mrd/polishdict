@@ -829,11 +829,18 @@ class MorphologyParser:
         - Must agree with noun in case, number, gender, animacy
         - Separate forms for masculine personal plural (virile)
         - May have comparative and superlative forms
+
+        Table structure:
+        Row 0: ['przypadek', 'liczba pojedyncza', 'liczba mnoga']
+        Row 1: ['mos/mzw', 'mrz', 'ż', 'n', 'mos', 'nmos']  # gender/animacy headers
+        Rows 2+: case rows with forms
+
+        May have degree markers like:
+        - 'stopień wyższy lepszy' (comparative)
+        - 'stopień najwyższy najlepszy' (superlative)
         """
         if self.verbose:
             print(f"[MorphologyParser] Parsing adjective declension for '{lemma}'")
-
-        structure = self._identify_table_structure(raw_table)
 
         # Initialize adjective declension
         adjective = AdjectiveDeclension(
@@ -846,12 +853,159 @@ class MorphologyParser:
             }
         )
 
-        # TODO: Implement actual parsing logic
+        if len(raw_table) < 3:
+            return adjective
 
-        if self.verbose:
-            print(f"[MorphologyParser] Table structure: {structure}")
+        # Parse the table by sections (positive, comparative, superlative)
+        sections = self._split_adjective_table_by_degree(raw_table)
+
+        for degree, section_rows in sections.items():
+            if section_rows:
+                degree_forms = self._parse_adjective_degree_section(section_rows)
+                adjective.forms[degree] = degree_forms
+                if self.verbose:
+                    print(f"[MorphologyParser] Parsed {degree} degree with {len(degree_forms)} entries")
 
         return adjective
+
+    def _split_adjective_table_by_degree(self, raw_table: List[List[str]]) -> Dict[str, List[List[str]]]:
+        """
+        Split adjective table into sections by comparison degree.
+
+        Returns dict with keys 'positive', 'comparative', 'superlative'
+        """
+        sections = {
+            'positive': [],
+            'comparative': [],
+            'superlative': []
+        }
+
+        current_degree = 'positive'
+        skip_next = False  # Skip header rows after degree markers
+
+        for idx, row in enumerate(raw_table):
+            if not row:
+                continue
+
+            # Check for degree markers
+            first_cell = self._normalize_cell(row[0]).lower()
+
+            # Detect degree markers
+            if 'stopień wyższy' in first_cell or 'stopień wyższ' in first_cell:
+                current_degree = 'comparative'
+                skip_next = True  # Skip the next header row
+                continue
+            elif 'stopień najwyższy' in first_cell or 'stopień najwyższ' in first_cell:
+                current_degree = 'superlative'
+                skip_next = True
+                continue
+
+            # Skip header row after degree marker
+            if skip_next and 'przypadek' in first_cell:
+                skip_next = False
+                continue
+
+            sections[current_degree].append(row)
+
+        return sections
+
+    def _parse_adjective_degree_section(self, section_rows: List[List[str]]) -> Dict:
+        """
+        Parse one degree section of adjective declension.
+
+        Due to HTML colspan merging, different cases have different column counts.
+        We extract forms simply by case without trying to precisely map all
+        gender/animacy combinations (which vary due to merged cells).
+
+        Returns dict mapping case to list of forms:
+        {
+            'nominative': ['dobry', 'dobra', 'dobre', 'dobrzy', 'dobre'],
+            'genitive': ['dobrego', 'dobrej', 'dobrego', 'dobrych'],
+            ...
+        }
+        """
+        if len(section_rows) < 3:
+            return {}
+
+        result = {}
+
+        # Parse case rows (starting from row 2, skipping headers)
+        for row_idx in range(2, len(section_rows)):
+            row = section_rows[row_idx]
+            if len(row) < 2:
+                continue
+
+            # First cell is case name
+            case_label = self._normalize_cell(row[0]).lower().strip()
+
+            # Match case
+            case = None
+            if case_label in self.CASE_LABELS:
+                case = self.CASE_LABELS[case_label]
+            else:
+                for label, case_enum in self.CASE_LABELS.items():
+                    if len(label) > 2 and (label in case_label or case_label in label):
+                        case = case_enum
+                        break
+
+            if case is None:
+                continue
+
+            case_name = case.value
+
+            # Extract all forms for this case (columns 1 onward)
+            forms = []
+            for col_idx in range(1, len(row)):
+                form = self._normalize_cell(row[col_idx])
+                if form and form not in ['-', '—', '']:
+                    forms.append(form)
+
+            if forms:
+                result[case_name] = forms
+
+        return result
+
+    def _parse_adjective_headers(self, header_row: List[str]) -> Dict[int, tuple]:
+        """
+        Parse adjective gender/animacy header row.
+
+        The header row doesn't include the case label column, so:
+        header_row[0] maps to data_row[1], header_row[1] maps to data_row[2], etc.
+
+        Returns dict mapping data column index to (number, gender_animacy) tuple.
+        Example: {1: ('singular', 'masculine_personal'), ...}
+        """
+        column_map = {}
+
+        if len(header_row) < 1:
+            return column_map
+
+        # Common patterns in adjective tables
+        # Singular: mos/mzw, mrz, ż, n (columns 1-4)
+        # Plural: mos, nmos (columns 5-6 or later)
+
+        for header_idx in range(len(header_row)):
+            cell = self._normalize_cell(header_row[header_idx]).lower().strip()
+
+            # Data column index is header_idx + 1 (because data rows have case label in column 0)
+            data_col_idx = header_idx + 1
+
+            # Singular forms
+            if cell in ['mos/mzw', 'mos / mzw', 'm os/zw', 'mos / mzw']:
+                column_map[data_col_idx] = ('singular', 'masculine_personal')
+            elif cell in ['mrz', 'm rz', 'm.rz.', 'masculine_inanimate']:
+                column_map[data_col_idx] = ('singular', 'masculine_inanimate')
+            elif cell in ['ż', 'ż.', 'feminine']:
+                column_map[data_col_idx] = ('singular', 'feminine')
+            elif cell in ['n', 'n.', 'neuter']:
+                column_map[data_col_idx] = ('singular', 'neuter')
+            # Plural forms
+            elif cell in ['mos', 'm os', 'm.os.', 'masculine_personal']:
+                column_map[data_col_idx] = ('plural', 'masculine_personal')
+            elif cell in ['nmos', 'nie-mos', 'niemęskoosobowy', 'nonmasculine']:
+                column_map[data_col_idx] = ('plural', 'nonmasculine_personal')
+
+        return column_map
 
     def _normalize_cell(self, cell: str) -> str:
         """Normalize a table cell value"""
