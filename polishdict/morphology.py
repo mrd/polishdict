@@ -415,15 +415,27 @@ class MorphologyParser:
                 if self.verbose:
                     print(f"[MorphologyParser] Found plural column at index {col_idx}")
 
-        # If not found in header, assume columns 1 and 2
-        if sing_col is None and len(header_row) >= 2:
+        # If not found in header, assume columns 1 and 2 (only if both are missing)
+        # Don't assume singular if we already found plural in column 1
+        if sing_col is None and plur_col is None and len(header_row) >= 2:
             sing_col = 1
             if self.verbose:
                 print(f"[MorphologyParser] Assuming singular at column 1")
-        if plur_col is None and len(header_row) >= 3:
+        if sing_col is None and plur_col is None and len(header_row) >= 3:
             plur_col = 2
             if self.verbose:
                 print(f"[MorphologyParser] Assuming plural at column 2")
+        # If we only found one of them, the other remains None
+        elif sing_col is None and plur_col is not None and len(header_row) >= 3:
+            # Found plural, assume singular is in a different column
+            sing_col = 2 if plur_col == 1 else 1
+            if self.verbose:
+                print(f"[MorphologyParser] Found plural at {plur_col}, assuming singular at {sing_col}")
+        elif plur_col is None and sing_col is not None and len(header_row) >= 3:
+            # Found singular, assume plural is in a different column
+            plur_col = 2 if sing_col == 1 else 1
+            if self.verbose:
+                print(f"[MorphologyParser] Found singular at {sing_col}, assuming plural at {plur_col}")
 
         # Parse data rows
         for row_idx in range(1, len(raw_table)):
