@@ -68,11 +68,17 @@ NOUN_TABLE_CZLOWIEK = [
     ['W', 'człowieku', 'ludzie']
 ]
 
-def test_table(name, raw_table, word_class, lemma):
+def test_table(name, raw_table, word_class, lemma, gender=None, animacy=None, aspect=None):
     """Test parsing a single table"""
     print(f"\n{'=' * 80}")
     print(f"Testing: {name}")
     print(f"Lemma: {lemma}, Word class: {word_class}")
+    if gender:
+        print(f"Gender: {gender}")
+    if animacy:
+        print(f"Animacy: {animacy}")
+    if aspect:
+        print(f"Aspect: {aspect}")
     print(f"{'=' * 80}\n")
 
     print("Raw table:")
@@ -81,7 +87,7 @@ def test_table(name, raw_table, word_class, lemma):
 
     print("\nParsing...")
     parser = MorphologyParser(verbose=False)  # Changed to False for cleaner output
-    result = parser.parse(raw_table, word_class, lemma)
+    result = parser.parse(raw_table, word_class, lemma, aspect=aspect, gender=gender, animacy=animacy)
 
     if result:
         print("\n✓ Parsed successfully!")
@@ -102,7 +108,9 @@ def main():
         "dom (house) - masculine inanimate",
         NOUN_TABLE_DOM,
         "noun",
-        "dom"
+        "dom",
+        gender="masculine",
+        animacy="inanimate"
     )
 
     # Test 2: pies (dog) - masculine animate
@@ -110,7 +118,9 @@ def main():
         "pies (dog) - masculine animate",
         NOUN_TABLE_PIES,
         "noun",
-        "pies"
+        "pies",
+        gender="masculine",
+        animacy="animate"
     )
 
     # Test 3: kobieta (woman) - feminine
@@ -118,7 +128,8 @@ def main():
         "kobieta (woman) - feminine",
         NOUN_TABLE_KOBIETA,
         "noun",
-        "kobieta"
+        "kobieta",
+        gender="feminine"
     )
 
     # Test 4: okno (window) - neuter
@@ -126,7 +137,8 @@ def main():
         "okno (window) - neuter",
         NOUN_TABLE_OKNO,
         "noun",
-        "okno"
+        "okno",
+        gender="neuter"
     )
 
     # Test 5: człowiek (person) - masculine personal with suppletive plural
@@ -134,7 +146,9 @@ def main():
         "człowiek (person) - masculine personal, suppletive plural",
         NOUN_TABLE_CZLOWIEK,
         "noun",
-        "człowiek"
+        "człowiek",
+        gender="masculine",
+        animacy="personal"
     )
 
 

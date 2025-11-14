@@ -53,7 +53,8 @@ def test_real_format():
 
     print("\nParsing...")
     parser = MorphologyParser(verbose=True)
-    result = parser.parse(VERB_TABLE_BYC_REAL, "verb", "być")
+    # być is imperfective (niedokonany)
+    result = parser.parse(VERB_TABLE_BYC_REAL, "verb", "być", aspect="imperfective")
 
     if result:
         print("\n✓ Parsed successfully!")
@@ -65,7 +66,14 @@ def test_real_format():
         print("Verification:")
         print("=" * 80)
 
-        forms = result.to_dict()['forms']
+        result_dict = result.to_dict()
+        forms = result_dict['forms']
+
+        # Check aspect
+        if result_dict.get('aspect') == 'imperfective':
+            print("✓ Aspect correctly set to 'imperfective'")
+        else:
+            print(f"✗ Aspect incorrect: {result_dict.get('aspect')}")
 
         # Check present tense
         if 'present' in forms:

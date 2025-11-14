@@ -217,7 +217,15 @@ class MorphologyParser:
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
 
-    def parse(self, raw_table: List[List[str]], word_class: str, lemma: str) -> Optional[MorphologicalForms]:
+    def parse(
+        self,
+        raw_table: List[List[str]],
+        word_class: str,
+        lemma: str,
+        aspect: Optional[str] = None,
+        gender: Optional[str] = None,
+        animacy: Optional[str] = None
+    ) -> Optional[MorphologicalForms]:
         """
         Main entry point for parsing.
 
@@ -225,18 +233,26 @@ class MorphologyParser:
             raw_table: 2D list of strings from HTML table
             word_class: Type of word ('noun', 'verb', 'adjective')
             lemma: Base form of the word
+            aspect: (Optional) For verbs: 'imperfective', 'perfective', or 'biaspectual'
+            gender: (Optional) For nouns/adjectives: 'masculine', 'feminine', or 'neuter'
+            animacy: (Optional) For masculine nouns: 'personal', 'animate', or 'inanimate'
 
         Returns:
             Parsed morphological data or None if parsing fails
+
+        Note:
+            Aspect, gender, and animacy are lexical properties that should come from
+            the word's headword information, not the conjugation/declension table.
+            These are typically extracted from Wiktionary's headword templates.
         """
         if not raw_table or not lemma:
             return None
 
         try:
             if word_class.lower() in ['noun', 'rzeczownik']:
-                return self._parse_noun_declension(raw_table, lemma)
+                return self._parse_noun_declension(raw_table, lemma, gender=gender, animacy=animacy)
             elif word_class.lower() in ['verb', 'czasownik']:
-                return self._parse_verb_conjugation(raw_table, lemma)
+                return self._parse_verb_conjugation(raw_table, lemma, aspect=aspect)
             elif word_class.lower() in ['adjective', 'przymiotnik']:
                 return self._parse_adjective_declension(raw_table, lemma)
             else:
@@ -290,7 +306,13 @@ class MorphologyParser:
 
         return structure
 
-    def _parse_noun_declension(self, raw_table: List[List[str]], lemma: str) -> Optional[NounDeclension]:
+    def _parse_noun_declension(
+        self,
+        raw_table: List[List[str]],
+        lemma: str,
+        gender: Optional[str] = None,
+        animacy: Optional[str] = None
+    ) -> Optional[NounDeclension]:
         """
         Parse a noun declension table.
 
@@ -307,6 +329,27 @@ class MorphologyParser:
 
         structure = self._identify_table_structure(raw_table)
 
+        # Parse gender and animacy if provided as strings
+        gender_enum = None
+        if gender:
+            gender_lower = gender.lower()
+            if gender_lower in ['masculine', 'męski', 'm']:
+                gender_enum = Gender.MASCULINE
+            elif gender_lower in ['feminine', 'żeński', 'ż']:
+                gender_enum = Gender.FEMININE
+            elif gender_lower in ['neuter', 'nijaki', 'n']:
+                gender_enum = Gender.NEUTER
+
+        animacy_enum = None
+        if animacy:
+            animacy_lower = animacy.lower()
+            if animacy_lower in ['personal', 'osobowy', 'mos']:
+                animacy_enum = Animacy.PERSONAL
+            elif animacy_lower in ['animate', 'żywotny', 'mzw']:
+                animacy_enum = Animacy.ANIMATE
+            elif animacy_lower in ['inanimate', 'nieżywotny', 'mnzw']:
+                animacy_enum = Animacy.INANIMATE
+
         # Initialize noun declension
         noun = NounDeclension(
             word_class=WordClass.NOUN,
@@ -314,7 +357,9 @@ class MorphologyParser:
             forms={
                 'singular': {},
                 'plural': {}
-            }
+            },
+            gender=gender_enum,
+            animacy=animacy_enum
         )
 
         if self.verbose:
@@ -438,7 +483,12 @@ class MorphologyParser:
             print("[MorphologyParser] case_cols layout not yet implemented")
         pass
 
-    def _parse_verb_conjugation(self, raw_table: List[List[str]], lemma: str) -> Optional[VerbConjugation]:
+    def _parse_verb_conjugation(
+        self,
+        raw_table: List[List[str]],
+        lemma: str,
+        aspect: Optional[str] = None
+    ) -> Optional[VerbConjugation]:
         """
         Parse a verb conjugation table.
 
@@ -452,11 +502,23 @@ class MorphologyParser:
 
         structure = self._identify_table_structure(raw_table)
 
+        # Parse aspect if provided as string
+        aspect_enum = None
+        if aspect:
+            aspect_lower = aspect.lower()
+            if aspect_lower in ['imperfective', 'niedokonany', 'ndk', 'impf']:
+                aspect_enum = Aspect.IMPERFECTIVE
+            elif aspect_lower in ['perfective', 'dokonany', 'dk', 'pf']:
+                aspect_enum = Aspect.PERFECTIVE
+            elif aspect_lower in ['biaspectual', 'dwuaspektowy']:
+                aspect_enum = Aspect.BIASPECTUAL
+
         # Initialize verb conjugation
         verb = VerbConjugation(
             word_class=WordClass.VERB,
             lemma=lemma,
-            forms={}
+            forms={},
+            aspect=aspect_enum
         )
 
         if self.verbose:
