@@ -276,6 +276,9 @@ class PolishDictionaryAPI:
                 # This prevents matching aspect/gender from related words
                 # e.g., "czasownik dokonany, zobacz też: robić (ndk)" → "czasownik dokonany"
                 pos_core = re.split(r'[,;]|zobacz|zobacz też|por\.|zob\.|cf\.', pos_clean)[0].strip()
+                # Remove parenthetical content which often contains info about related words
+                # e.g., "czasownik dokonany (ndk. robić)" → "czasownik dokonany"
+                pos_core = re.sub(r'\([^)]*\)', '', pos_core).strip()
 
                 detected_pos = None
                 pos_patterns = ['rzeczownik', 'czasownik', 'przymiotnik', 'przysłówek',
