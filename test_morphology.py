@@ -45,6 +45,14 @@ def main():
         print(f"Type: {decl.get('type', 'unknown')}")
         print(f"POS: {decl.get('pos', 'unknown')}")
 
+        # Show extracted grammar properties
+        if 'aspect' in decl:
+            print(f"Aspect: {decl['aspect']}")
+        if 'gender' in decl:
+            print(f"Gender: {decl['gender']}")
+        if 'animacy' in decl:
+            print(f"Animacy: {decl['animacy']}")
+
         raw_table = decl.get('table', [])
         if not raw_table:
             print("  (empty table)")
@@ -56,12 +64,15 @@ def main():
         for row_idx, row in enumerate(raw_table):
             print(f"  Row {row_idx}: {row}")
 
-        # Try to parse it
+        # Try to parse it with extracted grammar properties
         word_class = decl.get('pos', 'noun')  # Default to noun if unknown
         lemma = args.word
+        aspect = decl.get('aspect')
+        gender = decl.get('gender')
+        animacy = decl.get('animacy')
 
         print(f"\nParsing as {word_class}...")
-        parsed = morph_parser.parse(raw_table, word_class, lemma)
+        parsed = morph_parser.parse(raw_table, word_class, lemma, aspect=aspect, gender=gender, animacy=animacy)
 
         if parsed:
             print("\nParsed structure:")

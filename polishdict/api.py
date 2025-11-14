@@ -280,8 +280,13 @@ class PolishDictionaryAPI:
                         detected_pos = pos
                         break
 
+                # Extract grammatical properties from POS text
+                grammar_props = self._extract_grammar_properties(pos_clean, detected_pos)
+
                 if self.verbose:
                     print(f"[Polish] Processing POS: {detected_pos or pos_clean}")
+                    if grammar_props:
+                        print(f"[Polish] Grammar properties: {grammar_props}")
 
                 # Track the start of this POS block's definitions
                 start_def_num = current_def_num
@@ -312,11 +317,15 @@ class PolishDictionaryAPI:
 
                 # Track this POS block with its definition range
                 if current_def_num > start_def_num:
-                    result['pos_blocks'].append({
+                    pos_block_data = {
                         'pos': detected_pos or 'nieznany',
                         'start_def': start_def_num,
                         'end_def': current_def_num - 1
-                    })
+                    }
+                    # Add grammar properties if found
+                    if grammar_props:
+                        pos_block_data.update(grammar_props)
+                    result['pos_blocks'].append(pos_block_data)
                     if self.verbose:
                         print(f"[Polish] POS block '{detected_pos}' has definitions {start_def_num}-{current_def_num - 1}")
         elif self.verbose:
@@ -347,15 +356,27 @@ class PolishDictionaryAPI:
                         pos_block = result['pos_blocks'][idx]
                         # Determine table type based on POS
                         table_type = 'conjugation' if pos_block['pos'] == 'czasownik' else 'declension'
-                        result['declension'].append({
+                        decl_entry = {
                             'table': table_data,
                             'start_def': pos_block['start_def'],
                             'end_def': pos_block['end_def'],
                             'pos': pos_block['pos'],
                             'type': table_type
-                        })
+                        }
+                        # Include grammar properties for morphology parser
+                        if 'aspect' in pos_block:
+                            decl_entry['aspect'] = pos_block['aspect']
+                        if 'gender' in pos_block:
+                            decl_entry['gender'] = pos_block['gender']
+                        if 'animacy' in pos_block:
+                            decl_entry['animacy'] = pos_block['animacy']
+                        result['declension'].append(decl_entry)
                         if self.verbose:
                             print(f"[Polish] {table_type.capitalize()} table {idx+1} associated with definitions {pos_block['start_def']}-{pos_block['end_def']}")
+                            if 'aspect' in decl_entry:
+                                print(f"[Polish]   Aspect: {decl_entry['aspect']}")
+                            if 'gender' in decl_entry:
+                                print(f"[Polish]   Gender: {decl_entry['gender']}")
                     else:
                         # No POS block association available
                         result['declension'].append({
@@ -656,6 +677,50 @@ class PolishDictionaryAPI:
                     break
 
         return result
+
+    def _extract_grammar_properties(self, pos_text: str, pos: str) -> Dict[str, str]:
+        """
+        Extract grammatical properties from POS block text.
+
+        Args:
+            pos_text: Cleaned text from POS block (e.g., "czasownik niedokonany")
+            pos: Detected POS (e.g., "czasownik")
+
+        Returns:
+            Dict with keys like 'aspect', 'gender', 'animacy' if found
+        """
+        props = {}
+
+        # Extract aspect for verbs
+        if pos == 'czasownik':
+            if 'niedokonany' in pos_text or 'ndk' in pos_text:
+                props['aspect'] = 'imperfective'
+            elif 'dokonany' in pos_text or 'dk' in pos_text:
+                props['aspect'] = 'perfective'
+            elif 'dwuaspektowy' in pos_text:
+                props['aspect'] = 'biaspectual'
+
+        # Extract gender for nouns/adjectives
+        if pos in ['rzeczownik', 'przymiotnik']:
+            # Look for gender markers
+            if 'rodzaju męskiego' in pos_text or 'męski' in pos_text or pos_text.endswith(' m') or ' m ' in pos_text or ' m,' in pos_text:
+                props['gender'] = 'masculine'
+            elif 'rodzaju żeńskiego' in pos_text or 'żeński' in pos_text or pos_text.endswith(' ż') or ' ż ' in pos_text or ' ż,' in pos_text:
+                props['gender'] = 'feminine'
+            elif 'rodzaju nijakiego' in pos_text or 'nijaki' in pos_text or pos_text.endswith(' n') or ' n ' in pos_text or ' n,' in pos_text:
+                props['gender'] = 'neuter'
+
+        # Extract animacy for masculine nouns
+        if pos == 'rzeczownik' and props.get('gender') == 'masculine':
+            if 'osobowy' in pos_text or 'mos' in pos_text:
+                props['animacy'] = 'personal'
+            elif 'nieżywotny' in pos_text or 'mnzw' in pos_text:
+                # Check "nieżywotny" before "żywotny" to avoid partial match
+                props['animacy'] = 'inanimate'
+            elif 'żywotny' in pos_text or 'mzw' in pos_text:
+                props['animacy'] = 'animate'
+
+        return props
 
     def _strip_html(self, text: str) -> str:
         """Remove HTML tags from text"""
