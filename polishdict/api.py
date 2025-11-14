@@ -272,10 +272,12 @@ class PolishDictionaryAPI:
                 # Extract POS from the <p><i> text
                 pos_clean = self._clean_text(pos_text).lower()
 
-                # Extract only the main POS description (before "zobacz", commas, semicolons)
+                # Extract only the main POS description (before reference keywords like "zobacz")
                 # This prevents matching aspect/gender from related words
+                # Split on reference keywords (with optional leading comma/semicolon/whitespace)
                 # e.g., "czasownik dokonany, zobacz też: robić (ndk)" → "czasownik dokonany"
-                pos_core = re.split(r'[,;]|zobacz|zobacz też|por\.|zob\.|cf\.', pos_clean)[0].strip()
+                # But preserve commas in grammatical descriptions like "rzeczownik, rodzaj żeński"
+                pos_core = re.split(r'[,;\s]+(?:zobacz też|zobacz|por\.|zob\.|cf\.)', pos_clean)[0].strip()
                 # Remove parenthetical content which often contains info about related words
                 # e.g., "czasownik dokonany (ndk. robić)" → "czasownik dokonany"
                 pos_core = re.sub(r'\([^)]*\)', '', pos_core).strip()
@@ -711,22 +713,32 @@ class PolishDictionaryAPI:
 
         # Extract gender for nouns/adjectives
         if pos in ['rzeczownik', 'przymiotnik']:
+            # Check for compound gender+animacy forms first (e.g., "męskozwierzęcy", "męskoosobowy")
+            if 'męskozwierzęcy' in pos_text or 'męsko-zwierzęcy' in pos_text:
+                props['gender'] = 'masculine'
+                props['animacy'] = 'animate'
+            elif 'męskoosobowy' in pos_text or 'męsko-osobowy' in pos_text:
+                props['gender'] = 'masculine'
+                props['animacy'] = 'personal'
+            elif 'męskonieżywotny' in pos_text or 'męsko-nieżywotny' in pos_text:
+                props['gender'] = 'masculine'
+                props['animacy'] = 'inanimate'
             # Look for gender markers
-            if 'rodzaju męskiego' in pos_text or 'męski' in pos_text or pos_text.endswith(' m') or ' m ' in pos_text or ' m,' in pos_text:
+            elif 'rodzaju męskiego' in pos_text or 'męski' in pos_text or pos_text.endswith(' m') or ' m ' in pos_text or ' m,' in pos_text:
                 props['gender'] = 'masculine'
             elif 'rodzaju żeńskiego' in pos_text or 'żeński' in pos_text or pos_text.endswith(' ż') or ' ż ' in pos_text or ' ż,' in pos_text:
                 props['gender'] = 'feminine'
             elif 'rodzaju nijakiego' in pos_text or 'nijaki' in pos_text or pos_text.endswith(' n') or ' n ' in pos_text or ' n,' in pos_text:
                 props['gender'] = 'neuter'
 
-        # Extract animacy for masculine nouns
-        if pos == 'rzeczownik' and props.get('gender') == 'masculine':
+        # Extract animacy for masculine nouns (if not already set by compound form)
+        if pos == 'rzeczownik' and props.get('gender') == 'masculine' and 'animacy' not in props:
             if 'osobowy' in pos_text or 'mos' in pos_text:
                 props['animacy'] = 'personal'
             elif 'nieżywotny' in pos_text or 'mnzw' in pos_text:
                 # Check "nieżywotny" before "żywotny" to avoid partial match
                 props['animacy'] = 'inanimate'
-            elif 'żywotny' in pos_text or 'mzw' in pos_text:
+            elif 'żywotny' in pos_text or 'mzw' in pos_text or 'zwierzęcy' in pos_text:
                 props['animacy'] = 'animate'
 
         return props
