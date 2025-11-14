@@ -713,14 +713,20 @@ class PolishDictionaryAPI:
 
         # Extract gender for nouns/adjectives
         if pos in ['rzeczownik', 'przymiotnik']:
-            # Check for compound gender+animacy forms first (e.g., "męskozwierzęcy", "męskoosobowy")
-            if 'męskozwierzęcy' in pos_text or 'męsko-zwierzęcy' in pos_text:
+            # Check for niemęskoosobowy (non-masculine-personal) FIRST before other masculine checks
+            # This is a special category in Polish that groups all non-masculine-personal genders in plural
+            # We don't set specific gender/animacy for this as it's an umbrella category
+            if 'niemęskoosobowy' in pos_text or 'nie-męskoosobowy' in pos_text:
+                # Don't set gender/animacy - this is a plural-specific grouping category
+                pass
+            # Check for compound gender+animacy forms (e.g., "męskozwierzęcy", "męskoosobowy")
+            elif 'męskozwierzęcy' in pos_text or 'męsko-zwierzęcy' in pos_text:
                 props['gender'] = 'masculine'
                 props['animacy'] = 'animate'
             elif 'męskoosobowy' in pos_text or 'męsko-osobowy' in pos_text:
                 props['gender'] = 'masculine'
                 props['animacy'] = 'personal'
-            elif 'męskonieżywotny' in pos_text or 'męsko-nieżywotny' in pos_text:
+            elif 'męskonieżywotny' in pos_text or 'męsko-nieżywotny' in pos_text or 'męskorzeczowy' in pos_text or 'męsko-rzeczowy' in pos_text:
                 props['gender'] = 'masculine'
                 props['animacy'] = 'inanimate'
             # Look for gender markers
@@ -733,7 +739,8 @@ class PolishDictionaryAPI:
 
         # Extract animacy for masculine nouns (if not already set by compound form)
         if pos == 'rzeczownik' and props.get('gender') == 'masculine' and 'animacy' not in props:
-            if 'osobowy' in pos_text or 'mos' in pos_text:
+            # Check niemęskoosobowy first to avoid false match on "osobowy"
+            if 'niemęskoosobowy' not in pos_text and ('osobowy' in pos_text or 'mos' in pos_text):
                 props['animacy'] = 'personal'
             elif 'nieżywotny' in pos_text or 'mnzw' in pos_text:
                 # Check "nieżywotny" before "żywotny" to avoid partial match
